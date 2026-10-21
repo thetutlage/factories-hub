@@ -232,7 +232,7 @@
 
         <!-- draft -> ready, under the row -->
         <path class="edge" d="M100,214 C100,298 480,298 480,216" marker-end="url(#a2)"/>
-        <text class="lbl mid" x="290" y="300">probe: no gaps</text>
+        <text class="lbl mid" x="290" y="300">probe: frontier empty</text>
 
         <!-- bottom row -->
         <g class="node n-blocked"><rect x="645" y="350" width="110" height="44" rx="10"/><text x="700" y="372">blocked</text></g>
@@ -252,8 +252,8 @@
         <text class="lbl-hot" x="910" y="262">accept</text>
         <text class="lbl" x="910" y="279">promote</text>
         <text class="lbl" x="910" y="294">context</text>
-        <text class="lbl" x="910" y="311">merge if</text>
-        <text class="lbl" x="910" y="326">you say yes</text>
+        <text class="lbl" x="910" y="311">merge the PR</text>
+        <text class="lbl" x="910" y="326">if you say yes</text>
       </svg>
     </div>
     <div class="legend">
@@ -264,8 +264,8 @@
     </div>
     <ul class="notes">
       <li class="hot"><b><code>review → done</code> is the only place <code>context/</code> changes.</b> Every item under <code>## Context changes</code> is shown to you; you accept, change or drop each one.</li>
-      <li><b>Probe runs on <code>draft</code>, <code>probing</code> and <code>blocked</code>.</b> It applies your answers, looks for new gaps, and sets <code>ready</code> only when nothing is open.</li>
-      <li><b>Build picks the lowest-numbered ready task</b> whose <code>depends_on</code> tasks are all <code>done</code>. It commits on <code>task/&lt;id&gt;</code>, never merges, never pushes.</li>
+      <li><b>Probe runs on <code>draft</code>, <code>probing</code> and <code>blocked</code>.</b> It maps the task as a design tree, finds the facts itself, and asks you each round of open decisions with a recommended answer. It sets <code>ready</code> only when the frontier is empty and you confirm.</li>
+      <li><b>Build picks the lowest-numbered ready task</b> whose <code>depends_on</code> tasks are all <code>done</code>. It commits and pushes <code>task/&lt;id&gt;</code>, opens a pull request, and never merges. A later build reads the open review comments on that pull request.</li>
       <li class="warn"><b>Open:</b> how a task blocked by failed checks gets unblocked. There is no question to answer. Decided to wait for real cases.</li>
       <li class="warn"><b>Open:</b> a run that crashes leaves the task in <code>building</code> with no way out except a manual fix.</li>
       <li><b>Finished tasks stay</b> in <code>tasks/</code> with status <code>done</code>, so <code>depends_on</code>, decision sources and milestone counts keep working.</li>
@@ -330,14 +330,14 @@
         <thead><tr><th>Queue</th><th>From → To</th><th>Moved by</th><th>When</th></tr></thead>
         <tbody>
           <tr><td>—</td><td class="q">input → draft / ready / inbox / dropped</td><td><code>intake</code> + you</td><td>See section 1</td></tr>
-          <tr><td><span class="tag t-change">change</span></td><td class="q">draft, probing, blocked → probing</td><td><code>probe</code></td><td>Open questions remain, or new gaps found</td></tr>
-          <tr><td><span class="tag t-change">change</span></td><td class="q">draft, probing, blocked → ready</td><td><code>probe</code></td><td>Every question answered, no new gaps</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">draft, probing, blocked → probing</td><td><code>probe</code></td><td>Decisions are still open on the frontier</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">draft, probing, blocked → ready</td><td><code>probe</code></td><td>The frontier is empty, and you confirm</td></tr>
           <tr><td><span class="tag t-change">change</span></td><td class="q">ready → building</td><td><code>build</code></td><td>Lowest number, all <code>depends_on</code> done</td></tr>
           <tr><td><span class="tag t-change">change</span></td><td class="q">building → blocked</td><td><code>build</code></td><td>Stop rule hit, or checks fail 3 times</td></tr>
-          <tr><td><span class="tag t-change">change</span></td><td class="q">building → review</td><td><code>build</code></td><td>Evidence written, committed on the branch</td></tr>
-          <tr><td><span class="tag t-change">change</span></td><td class="q">review → ready</td><td><code>accept</code> + you</td><td>Rejected, build again as is</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">building → review</td><td><code>build</code></td><td>Evidence written, branch pushed, pull request open</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">review → ready</td><td><code>accept</code> + you</td><td>Rejected, your changes are review comments on the pull request</td></tr>
           <tr><td><span class="tag t-change">change</span></td><td class="q">review → draft</td><td><code>accept</code> + you</td><td>Rejected, the task needs changing</td></tr>
-          <tr><td><span class="tag t-change">change</span></td><td class="q">review → done</td><td><code>accept</code> + you</td><td>Accepted. Context changes promoted. Merge if you say yes.</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">review → done</td><td><code>accept</code> + you</td><td>Accepted. Context changes promoted. The pull request is merged if you say yes.</td></tr>
           <tr><td><span class="tag t-explore">exploration</span></td><td class="q">ready → building → review</td><td><code>build</code></td><td>Lowest number. By default, only when no change task is ready.</td></tr>
           <tr><td><span class="tag t-explore">exploration</span></td><td class="q">review → done</td><td><code>accept</code> + you</td><td>Findings answer the question</td></tr>
           <tr><td><span class="tag t-explore">exploration</span></td><td class="q">review → ready</td><td><code>accept</code> + you</td><td>Not answered; question or method changed</td></tr>

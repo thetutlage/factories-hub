@@ -33,6 +33,7 @@ Read these files:
 - Each decision in its `decisions`.
 - `context/glossary.md`, and the files in `context/rules/` that are about the work.
 - `CLAUDE.md` of each repository in `repos`. It tells you how to write the code and how to run the checks.
+- The pull request of `task/<id>` in each repository, when it exists (`gh pr list --head task/<id>`). Read each review comment that is not resolved. Fix each one, or reply with the reason when you do not fix it.
 - For a change task with an `exploration`, its `exploration.md` and its artifacts. Use the artifacts as a reference for the change.
 
 ## 3. Build
@@ -72,7 +73,7 @@ For a change task, run each check that `CLAUDE.md` of the repository gives. If i
 
 For a change task, write these items under `## Evidence`:
 
-- The branch in each repository.
+- The branch and the pull request in each repository.
 - The changes, in a maximum of five lines.
 - Each acceptance criterion, with the check that proves it, and the result.
 - Each decision that you made about the code, with its reason.
@@ -86,8 +87,9 @@ For an exploration, write these items under `## Evidence`:
 
 ## 7. Finish
 
-1. For a change task, commit the work on the branch. Do not merge. Do not push.
-2. Set the status to `review`.
+1. For a change task, commit the work on the branch, and push the branch. Do not merge.
+2. When the branch has no pull request, open one to the default branch. The title is the id and the title of the task. The body has the goal, the result of each criterion, and the screenshots as links to the hub on GitHub. Do not open it as a draft.
+3. Set the status to `review`. Commit the task file and the screenshots in the hub, and push the hub.
 
 ## Hand back
 

@@ -35,14 +35,14 @@ Show:
 - Each acceptance criterion, with its evidence.
 - Each decision that the build made about the code.
 - The discovered work.
-- For each repository in `repos`, the output of `git diff --stat <default branch>...task/<id>`. Show the full diff only when the person asks for it.
+- The pull request in each repository in `repos`, with its review comments that are still open. The person reads the diff on GitHub.
 
 ### Record the result
 
 Ask the person to accept or to reject the task. Write the result and the reason under `## Review`.
 
-- When the person rejects the task, ask what to do next. To build again with the same task, set the status to `ready`. To change the task first, set the status to `draft`. Stop.
-- When the person accepts the task, ask if you must merge the branches. Merge only when the person says yes.
+- When the person rejects the task, ask what to do next. To build again, ask the person to write the changes as review comments on the pull request, and set the status to `ready`. The next build reads them. To change the task first, set the status to `draft`. Stop.
+- When the person accepts the task, ask if you must merge the pull requests. Merge only when the person says yes, with `gh pr merge --squash`. Then pull the default branch in each repository.
 
 ### Promote
 
