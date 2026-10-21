@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factory State Machine</title>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --text: #1d1d1f;
+    --muted: #5f6368;
+    --line: #d9d7d2;
+    --edge: #7a7f87;
+    --change: #2f6fde;
+    --change-bg: #e8f0fd;
+    --explore: #7b4fd6;
+    --explore-bg: #f0eafc;
+    --done: #1f8a4c;
+    --done-bg: #e5f5ec;
+    --blocked: #b86e00;
+    --blocked-bg: #fdf1df;
+    --gray-bg: #eeeeec;
+    --accent: #d23f73;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416;
+      --surface: #1d1d20;
+      --text: #ececee;
+      --muted: #a3a6ad;
+      --line: #34343a;
+      --edge: #8d929b;
+      --change: #6d9cf0;
+      --change-bg: #1c2840;
+      --explore: #a888ee;
+      --explore-bg: #2a2140;
+      --done: #4cc07f;
+      --done-bg: #17301f;
+      --blocked: #e0a145;
+      --blocked-bg: #352812;
+      --gray-bg: #2a2a2e;
+      --accent: #f06c9b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416;
+    --surface: #1d1d20;
+    --text: #ececee;
+    --muted: #a3a6ad;
+    --line: #34343a;
+    --edge: #8d929b;
+    --change: #6d9cf0;
+    --change-bg: #1c2840;
+    --explore: #a888ee;
+    --explore-bg: #2a2140;
+    --done: #4cc07f;
+    --done-bg: #17301f;
+    --blocked: #e0a145;
+    --blocked-bg: #352812;
+    --gray-bg: #2a2a2e;
+    --accent: #f06c9b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 19px; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 32px; max-width: 70ch; }
+  section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 22px 18px;
+    margin-bottom: 24px;
+  }
+  .sub { color: var(--muted); margin: 0 0 14px; font-size: 14px; }
+  .diagram { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+
+  /* SVG */
+  .node rect { stroke-width: 1.5; }
+  .node text { font: 600 14px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+  .n-change rect { fill: var(--change-bg); stroke: var(--change); }
+  .n-change text { fill: var(--change); }
+  .n-explore rect { fill: var(--explore-bg); stroke: var(--explore); }
+  .n-explore text { fill: var(--explore); }
+  .n-done rect { fill: var(--done-bg); stroke: var(--done); }
+  .n-done text { fill: var(--done); }
+  .n-blocked rect { fill: var(--blocked-bg); stroke: var(--blocked); }
+  .n-blocked text { fill: var(--blocked); }
+  .n-gray rect { fill: var(--gray-bg); stroke: var(--edge); }
+  .n-gray text { fill: var(--muted); }
+  .n-skill rect { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
+  .n-skill text { fill: var(--text); }
+  .edge { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+  .edge.dash { stroke-dasharray: 5 4; }
+  .edge.hot { stroke: var(--accent); stroke-width: 2.25; }
+  .arrow { fill: var(--edge); }
+  .arrow-hot { fill: var(--accent); }
+  .lbl { font: 12px system-ui, sans-serif; fill: var(--muted); }
+  .lbl-hot { font: 600 12px system-ui, sans-serif; fill: var(--accent); }
+  .mid { text-anchor: middle; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid; display: inline-block; }
+
+  /* Notes */
+  .notes { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .notes li {
+    border-left: 3px solid var(--line);
+    padding: 2px 0 2px 12px;
+    font-size: 14px;
+  }
+  .notes li b { color: var(--text); }
+  .notes li.hot { border-color: var(--accent); }
+  .notes li.warn { border-color: var(--blocked); }
+  code {
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--gray-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 620px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .q { font-weight: 600; }
+  .tag { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+  .t-change { background: var(--change-bg); color: var(--change); }
+  .t-explore { background: var(--explore-bg); color: var(--explore); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Factory state machine</h1>
+  <p class="lead">How work moves through the factory: one way in through <code>intake</code>, then two separate queues. Change tasks change the product. Explorations answer a question and keep their artifacts.</p>
+
+  <!-- 1. ENTRY -->
+  <section>
+    <h2>1. The way in: intake</h2>
+    <p class="sub">Every piece of work starts at <code>intake</code>. A pure positioning or non-goal update with no work is the one exception: you edit <code>context/</code> directly.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1000 250" role="img" aria-label="Inputs flow into intake, which produces a change task, an exploration, an inbox line, or drops the input">
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <!-- inputs -->
+        <g class="node n-gray"><rect x="30" y="35" width="200" height="44" rx="10"/><text x="130" y="57">idea · bug · issue · chore</text></g>
+        <g class="node n-gray"><rect x="30" y="103" width="200" height="44" rx="10"/><text x="130" y="125">item from inbox.md</text></g>
+        <g class="node n-explore"><rect x="30" y="171" width="200" height="44" rx="10"/><text x="130" y="193">done exploration (E-n)</text></g>
+
+        <!-- intake -->
+        <g class="node n-skill"><rect x="370" y="100" width="140" height="50" rx="10"/><text x="440" y="125">intake</text></g>
+
+        <path class="edge" d="M230,57 C300,57 300,118 368,118" marker-end="url(#a1)"/>
+        <path class="edge" d="M230,125 L368,125" marker-end="url(#a1)"/>
+        <path class="edge" d="M230,193 C300,193 300,132 368,132" marker-end="url(#a1)"/>
+
+        <!-- outputs -->
+        <g class="node n-change"><rect x="800" y="18" width="180" height="40" rx="10"/><text x="890" y="38">change task · draft</text></g>
+        <g class="node n-explore"><rect x="800" y="76" width="180" height="40" rx="10"/><text x="890" y="96">exploration · ready</text></g>
+        <g class="node n-gray"><rect x="800" y="134" width="180" height="40" rx="10"/><text x="890" y="154">line in inbox.md</text></g>
+        <g class="node n-gray"><rect x="800" y="192" width="180" height="40" rx="10"/><text x="890" y="212">dropped</text></g>
+
+        <path class="edge" d="M510,118 C590,118 590,38 640,38 L798,38" marker-end="url(#a1)"/>
+        <path class="edge" d="M510,122 C590,122 590,96 640,96 L798,96" marker-end="url(#a1)"/>
+        <path class="edge" d="M510,128 C590,128 590,154 640,154 L798,154" marker-end="url(#a1)"/>
+        <path class="edge" d="M510,132 C590,132 590,212 640,212 L798,212" marker-end="url(#a1)"/>
+
+        <text class="lbl" x="648" y="30">nothing missing</text>
+        <text class="lbl" x="648" y="88">only building can tell</text>
+        <text class="lbl" x="648" y="146">not for now</text>
+        <text class="lbl" x="648" y="204">you drop it</text>
+      </svg>
+    </div>
+    <ul class="notes">
+      <li><b>A done exploration only produces change tasks.</b> <code>intake E-n</code> reads its findings, context changes and artifacts, then asks only about the gaps left.</li>
+      <li><b>Conflicts with positioning or a non-goal</b> give three choices: drop the input, make a one-time exception (recorded in <code>## Questions</code>), or change the line (recorded in <code>## Context changes</code>).</li>
+      <li><b>A duplicate</b> (an open task or exploration for the same work) stops intake and names the existing id.</li>
+    </ul>
+  </section>
+
+  <!-- 2. CHANGE TASK -->
+  <section>
+    <h2>2. Change task queue <span class="tag t-change">tasks/T-n</span></h2>
+    <p class="sub">Changes the product on a branch in each repository. The only path that writes to <code>context/</code>.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1000 420" role="img" aria-label="Change task states: draft, probing, ready, building, review, blocked, done">
+        <defs>
+          <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="a2h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow-hot" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <!-- top curves: rejects -->
+        <path class="edge" d="M915,170 C915,22 100,22 100,168" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="508" y="44">accept: reject → change the task first</text>
+        <path class="edge" d="M880,170 C880,96 500,96 500,168" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="690" y="112">accept: reject → build again</text>
+
+        <!-- probing self loop -->
+        <path class="edge" d="M285,170 C262,118 338,118 315,168" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="300" y="116">answers, new gaps</text>
+
+        <!-- main row -->
+        <g class="node n-change"><rect x="45" y="170" width="110" height="44" rx="10"/><text x="100" y="192">draft</text></g>
+        <g class="node n-change"><rect x="245" y="170" width="110" height="44" rx="10"/><text x="300" y="192">probing</text></g>
+        <g class="node n-change"><rect x="445" y="170" width="110" height="44" rx="10"/><text x="500" y="192">ready</text></g>
+        <g class="node n-change"><rect x="645" y="170" width="110" height="44" rx="10"/><text x="700" y="192">building</text></g>
+        <g class="node n-change"><rect x="845" y="170" width="110" height="44" rx="10"/><text x="900" y="192">review</text></g>
+
+        <path class="edge" d="M155,192 L243,192" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="200" y="183">gaps found</text>
+        <path class="edge" d="M355,192 L443,192" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="400" y="183">all answered</text>
+        <path class="edge" d="M555,192 L643,192" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="600" y="183">build</text>
+        <path class="edge" d="M755,192 L843,192" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="800" y="183">evidence</text>
+
+        <!-- draft -> ready, under the row -->
+        <path class="edge" d="M100,214 C100,298 480,298 480,216" marker-end="url(#a2)"/>
+        <text class="lbl mid" x="290" y="300">probe: no gaps</text>
+
+        <!-- bottom row -->
+        <g class="node n-blocked"><rect x="645" y="350" width="110" height="44" rx="10"/><text x="700" y="372">blocked</text></g>
+        <g class="node n-done"><rect x="845" y="350" width="110" height="44" rx="10"/><text x="900" y="372">done</text></g>
+
+        <path class="edge" d="M700,214 L700,348" marker-end="url(#a2)"/>
+        <text class="lbl" x="708" y="268">stop rule:</text>
+        <text class="lbl" x="708" y="283">a question</text>
+        <text class="lbl" x="708" y="306">checks fail</text>
+        <text class="lbl" x="708" y="321">3 times</text>
+
+        <path class="edge" d="M645,372 L560,372 Q520,372 520,332 L520,216" marker-end="url(#a2)"/>
+        <text class="lbl" x="530" y="344">you answer,</text>
+        <text class="lbl" x="530" y="359">then probe</text>
+
+        <path class="edge hot" d="M900,214 L900,348" marker-end="url(#a2h)"/>
+        <text class="lbl-hot" x="910" y="262">accept</text>
+        <text class="lbl" x="910" y="279">promote</text>
+        <text class="lbl" x="910" y="294">context</text>
+        <text class="lbl" x="910" y="311">merge if</text>
+        <text class="lbl" x="910" y="326">you say yes</text>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--change-bg);border-color:var(--change)"></i>in progress</span>
+      <span><i class="sw" style="background:var(--blocked-bg);border-color:var(--blocked)"></i>waiting on you</span>
+      <span><i class="sw" style="background:var(--done-bg);border-color:var(--done)"></i>finished</span>
+      <span><i class="sw" style="background:transparent;border-color:var(--accent)"></i>the only edge that writes <code>context/</code></span>
+    </div>
+    <ul class="notes">
+      <li class="hot"><b><code>review → done</code> is the only place <code>context/</code> changes.</b> Every item under <code>## Context changes</code> is shown to you; you accept, change or drop each one.</li>
+      <li><b>Probe runs on <code>draft</code>, <code>probing</code> and <code>blocked</code>.</b> It applies your answers, looks for new gaps, and sets <code>ready</code> only when nothing is open.</li>
+      <li><b>Build picks the lowest-numbered ready task</b> whose <code>depends_on</code> tasks are all <code>done</code>. It commits on <code>task/&lt;id&gt;</code>, never merges, never pushes.</li>
+      <li class="warn"><b>Open:</b> how a task blocked by failed checks gets unblocked. There is no question to answer. Decided to wait for real cases.</li>
+      <li class="warn"><b>Open:</b> a run that crashes leaves the task in <code>building</code> with no way out except a manual fix.</li>
+      <li><b>Finished tasks stay</b> in <code>tasks/</code> with status <code>done</code>, so <code>depends_on</code>, decision sources and milestone counts keep working.</li>
+    </ul>
+  </section>
+
+  <!-- 3. EXPLORATION -->
+  <section>
+    <h2>3. Exploration queue <span class="tag t-explore">explorations/E-n/</span></h2>
+    <p class="sub">Builds something throwaway to answer one question. Never touches the repositories. Its artifacts are progress and are never deleted.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1000 310" role="img" aria-label="Exploration states: ready, building, review, done, consumed, discarded">
+        <defs>
+          <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+
+        <path class="edge" d="M500,110 C500,36 100,36 100,108" marker-end="url(#a3)"/>
+        <text class="lbl mid" x="300" y="52">accept: not answered → change question or method</text>
+
+        <g class="node n-explore"><rect x="45" y="110" width="110" height="44" rx="10"/><text x="100" y="132">ready</text></g>
+        <g class="node n-explore"><rect x="245" y="110" width="110" height="44" rx="10"/><text x="300" y="132">building</text></g>
+        <g class="node n-explore"><rect x="445" y="110" width="110" height="44" rx="10"/><text x="500" y="132">review</text></g>
+        <g class="node n-done"><rect x="645" y="110" width="110" height="44" rx="10"/><text x="700" y="132">done</text></g>
+        <g class="node n-done"><rect x="845" y="110" width="110" height="44" rx="10"/><text x="900" y="132">consumed</text></g>
+
+        <path class="edge" d="M155,132 L243,132" marker-end="url(#a3)"/>
+        <text class="lbl mid" x="200" y="123">build</text>
+        <path class="edge" d="M355,132 L443,132" marker-end="url(#a3)"/>
+        <text class="lbl mid" x="400" y="123">evidence</text>
+        <path class="edge" d="M555,132 L643,132" marker-end="url(#a3)"/>
+        <text class="lbl mid" x="600" y="123">answered</text>
+        <path class="edge" d="M755,132 L843,132" marker-end="url(#a3)"/>
+        <text class="lbl mid" x="800" y="111">all its change</text>
+        <text class="lbl mid" x="800" y="123">tasks done</text>
+
+        <g class="node n-gray"><rect x="445" y="240" width="110" height="44" rx="10"/><text x="500" y="262">discarded</text></g>
+        <path class="edge" d="M500,154 L500,238" marker-end="url(#a3)"/>
+        <text class="lbl" x="508" y="200">accept: discard</text>
+
+        <g class="node n-skill"><rect x="630" y="240" width="140" height="44" rx="10"/><text x="700" y="262">intake E-n</text></g>
+        <path class="edge dash" d="M700,154 L700,238" marker-end="url(#a3)"/>
+        <text class="lbl" x="708" y="200">when you want changes</text>
+        <path class="edge dash" d="M770,262 L860,262" marker-end="url(#a3)"/>
+        <g class="node n-change"><rect x="862" y="242" width="120" height="40" rx="10"/><text x="922" y="262">change tasks</text></g>
+      </svg>
+    </div>
+    <ul class="notes">
+      <li><b>Accept on an exploration changes only its status and findings.</b> Nothing goes to <code>context/</code>, nothing is deleted.</li>
+      <li><b>Its <code>## Context changes</code> are a holding place.</b> Intake copies them into the change tasks it makes; they reach <code>context/</code> only when that change is accepted.</li>
+      <li><b>The change tasks link back</b> with <code>exploration: E-n</code>. Probe and build read the findings and artifacts at every stage; build uses the artifacts as a reference.</li>
+      <li><b>No probe, no blocked.</b> Build makes its own decisions in an exploration and writes them in the evidence. No checks run.</li>
+      <li><b>Discarded explorations stay</b> with their reason and artifacts.</li>
+    </ul>
+  </section>
+
+  <!-- 4. TRANSITIONS -->
+  <section>
+    <h2>4. Every transition</h2>
+    <p class="sub">Who moves the work, and when.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Queue</th><th>From → To</th><th>Moved by</th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td>—</td><td class="q">input → draft / ready / inbox / dropped</td><td><code>intake</code> + you</td><td>See section 1</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">draft, probing, blocked → probing</td><td><code>probe</code></td><td>Open questions remain, or new gaps found</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">draft, probing, blocked → ready</td><td><code>probe</code></td><td>Every question answered, no new gaps</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">ready → building</td><td><code>build</code></td><td>Lowest number, all <code>depends_on</code> done</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">building → blocked</td><td><code>build</code></td><td>Stop rule hit, or checks fail 3 times</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">building → review</td><td><code>build</code></td><td>Evidence written, committed on the branch</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">review → ready</td><td><code>accept</code> + you</td><td>Rejected, build again as is</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">review → draft</td><td><code>accept</code> + you</td><td>Rejected, the task needs changing</td></tr>
+          <tr><td><span class="tag t-change">change</span></td><td class="q">review → done</td><td><code>accept</code> + you</td><td>Accepted. Context changes promoted. Merge if you say yes.</td></tr>
+          <tr><td><span class="tag t-explore">exploration</span></td><td class="q">ready → building → review</td><td><code>build</code></td><td>Lowest number. By default, only when no change task is ready.</td></tr>
+          <tr><td><span class="tag t-explore">exploration</span></td><td class="q">review → done</td><td><code>accept</code> + you</td><td>Findings answer the question</td></tr>
+          <tr><td><span class="tag t-explore">exploration</span></td><td class="q">review → ready</td><td><code>accept</code> + you</td><td>Not answered; question or method changed</td></tr>
+          <tr><td><span class="tag t-explore">exploration</span></td><td class="q">review → discarded</td><td><code>accept</code> + you</td><td>You discard it; reason recorded</td></tr>
+          <tr><td><span class="tag t-explore">exploration</span></td><td class="q">done → consumed</td><td><code>accept</code></td><td>Every change task linked to it is done</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
