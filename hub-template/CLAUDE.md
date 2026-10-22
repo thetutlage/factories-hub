@@ -10,12 +10,12 @@ This folder holds what the factory knows about <Product>. Run the agents in this
 
 ## Files
 
-| Path            | It holds                                                           | It changes                                    |
-| --------------- | ------------------------------------------------------------------ | --------------------------------------------- |
-| `context/`      | Positioning, glossary, rules, decisions, non-goals                 | Rarely. Only `accept` or a person changes it. |
-| `inbox.md`      | Work that is not a task yet: ideas, deferred work, discovered work | Often                                         |
-| `tasks/`        | One file for each change task                                      | Each task stays, with its last status         |
-| `explorations/` | One folder for each exploration: `exploration.md` and its artifacts | Each exploration stays, with its last status |
+| Path            | It holds                                                            | It changes                                    |
+| --------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| `context/`      | Positioning, glossary, rules, decisions, non-goals                  | Rarely. Only `accept` or a person changes it. |
+| `inbox.md`      | Work that is not a task yet: ideas, deferred work, discovered work  | Often                                         |
+| `tasks/`        | One file for each change task                                       | Each task stays, with its last status         |
+| `explorations/` | One folder for each exploration: `exploration.md` and its artifacts | Each exploration stays, with its last status  |
 
 ## Two queues
 
@@ -65,9 +65,9 @@ Write one item for each change:
 
 ## Skills
 
-| Skill    | It does                                                                    |
-| -------- | -------------------------------------------------------------------------- |
+| Skill    | It does                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `intake` | Turns any input into change tasks or an exploration, or into one line in the inbox. Turns a done exploration into change tasks. |
-| `probe`  | Grills the person on a change task until each decision is settled |
-| `build`  | Builds one ready change task or exploration. No person watches it.         |
-| `accept` | Reviews the work with a person. Promotes the facts of a change task to `context/`. |
+| `probe`  | Settles with the person each thing that a change task leaves open                                                               |
+| `build`  | Builds one ready change task or exploration. No person watches it.                                                              |
+| `accept` | Reviews the work with a person. Promotes the facts of a change task to `context/`.                                              |
