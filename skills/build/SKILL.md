@@ -35,7 +35,7 @@ Read these files:
 - Each decision in its `decisions`.
 - `context/glossary.md`, and the files in `context/rules/` that are about the work.
 - `CLAUDE.md` of each repository in `repos`. It tells you how to write the code and how to run the checks.
-- The pull request of `task/<id>` in each repository, when it exists (`gh pr list --head task/<id>`). Read each review comment that is not resolved. Fix each one, or reply with the reason when you do not fix it. After the push in step 7, reply on each comment with what changed. Send each reply as its own command, `gh api repos/<owner>/<repo>/pulls/<number>/comments/<comment id>/replies -f body='<reply>'`, with no shell function or loop, so that the permission rules match it.
+- The pull request of `task/<id>` in each repository, when it exists (`gh pr list --head task/<id>`). Read each review comment that is not resolved. Fix each one, or reply with the reason when you do not fix it. After the push of the branch in step 7, and before you set the status to `review`, reply on each comment with what changed. Send each reply as its own command, `gh api repos/<owner>/<repo>/pulls/<number>/comments/<comment id>/replies -f body='<reply>'`, with no shell function or loop, so that the permission rules match it.
 - For a change task with an `exploration`, its `exploration.md` and its artifacts. Use the artifacts as a reference for the change.
 
 ## 3. Build

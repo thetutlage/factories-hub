@@ -16,6 +16,8 @@ import { basename, join } from 'node:path'
 const HOME = process.env.FACTORY_HOME ?? join(homedir(), '.factory')
 const DRY = process.argv.includes('--dry-run')
 const HOST = hostname().replace(/\.local$/, '')
+// how long review comments must be quiet before the worker sends a task back to build
+const QUIET_MS = 5 * 60 * 1000
 
 const config = JSON.parse(readFileSync(join(HOME, 'config.json'), 'utf8'))
 // owner/name of the fleet repository on GitHub, or null for a fleet elsewhere
@@ -295,7 +297,7 @@ function pullRequests(hub, task) {
     const list = sh('gh', ['pr', 'list', '--repo', slugs[repo], '--head', `task/${task.id}`, '--state', 'all', '--limit', '1', '--json', 'number,state,url'], hub)
     const pr = JSON.parse(list.out)[0]
     if (!pr) return null
-    prs.push(pr)
+    prs.push({ ...pr, repo: slugs[repo] })
   }
   return prs
 }
@@ -309,7 +311,8 @@ function review(name, hub, hubState, task, branch, running) {
     return
   }
   const prs = pullRequests(hub, task)
-  if (!prs || prs.some((pr) => pr.state === 'OPEN')) return
+  if (!prs) return
+  if (prs.some((pr) => pr.state === 'OPEN')) return rebuild(name, hub, task, branch, prs)
 
   const closed = prs.filter((pr) => pr.state === 'CLOSED')
   if (closed.length) return reopen(name, hub, hubState, task, branch, closed)
@@ -340,13 +343,46 @@ function reopen(name, hub, hubState, task, branch, closed) {
   const key = `closed-${task.id}-${closed.map((pr) => pr.number).join('-')}`
   if (hubState.notified[key]) return
   if (DRY) return log(`would set ${task.id} back to draft: ${closed.map((pr) => pr.url).join(', ')} closed`)
+  const changed = changeStatus(hub, task, branch, 'review', 'draft', `chore: set ${task.id} back to draft, its pull request was closed`)
+  if (!changed) return
+  reportOnce(hubState, key, name, `${task.id}: ${closed.map((pr) => pr.url).join(', ')} was closed with no merge. The worker set the task back to \`draft\`. Change it and probe it again, or discard it.`)
+}
+
+// review comments on an open pull request: once they are quiet, the task goes back to ready, and the next
+// build reads them. The build replies before it sets the task to review, so its replies do not count.
+function rebuild(name, hub, task, branch, prs) {
+  const comments = newComments(hub, task, prs)
+  if (!comments.length) return
+  const newest = Math.max(...comments.map((comment) => Date.parse(comment.createdAt)))
+  if (Date.now() - newest < QUIET_MS) return
+  if (DRY) return log(`would send ${task.id} back to build for ${comments.length} review comments`)
+  const message = `chore: send ${task.id} back to build for ${comments.length} review comments`
+  if (changeStatus(hub, task, branch, 'review', 'ready', message)) log(`${name}: ${message}`)
+}
+
+// the comments of unresolved review threads that came after the task was set to review
+function newComments(hub, task, prs) {
+  const since = Date.parse(git(['log', '-1', '--format=%cI', '-G', '^status: review$', '--', join('tasks', task.file)], hub).out)
+  if (Number.isNaN(since)) return []
+  const query = 'query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved comments(last: 50) { nodes { createdAt } } } } } } }'
+  const comments = []
+  for (const pr of prs.filter((pr) => pr.state === 'OPEN')) {
+    const [owner, repo] = pr.repo.split('/')
+    const out = sh('gh', ['api', 'graphql', '-f', `query=${query}`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${pr.number}`], hub).out
+    for (const thread of JSON.parse(out).data.repository.pullRequest.reviewThreads.nodes) {
+      if (!thread.isResolved) comments.push(...thread.comments.nodes.filter((comment) => Date.parse(comment.createdAt) > since))
+    }
+  }
+  return comments
+}
+
+// changes the status of a task in a short-lived worktree of the hub
+function changeStatus(hub, task, branch, from, to, message) {
   const folder = join(hub, '.factory/status', task.id)
   if (existsSync(folder)) git(['worktree', 'remove', '--force', folder], hub, { check: false })
   git(['worktree', 'add', '--quiet', '--detach', folder, branch], hub)
   try {
-    const changed = setStatus(folder, task, 'review', 'draft', `chore: set ${task.id} back to draft, its pull request was closed`, branch)
-    if (!changed) return
-    reportOnce(hubState, key, name, `${task.id}: ${closed.map((pr) => pr.url).join(', ')} was closed with no merge. The worker set the task back to \`draft\`. Change it and probe it again, or discard it.`)
+    return setStatus(folder, task, from, to, message, branch)
   } finally {
     git(['worktree', 'remove', '--force', folder], hub, { check: false })
   }
