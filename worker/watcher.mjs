@@ -1,7 +1,8 @@
 // The watcher: looks at the pull requests of each change task in `review`, by the rules of "The watcher
 // script" in state-machine.md. Each pull request merged: the task goes to `accepting`, and an accept
 // session starts. A pull request closed with no merge: the task goes back to `draft`. A change on an open
-// pull request: once it is 5 minutes old, a triage session starts. The activity of the factory itself is
+// pull request: a triage session starts, at once for a submitted review, and for other changes once they
+// are 5 minutes old. The activity of the factory itself is
 // not a change, so the replies and comments of its own sessions do not start a triage.
 import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
@@ -74,11 +75,14 @@ function triage({ name, hub, hubState, branch, running }, task, prs) {
   const watch = (hubState.watch[task.id] ??= {})
   if (watch.agent && running(watch.agent)) return
 
-  const { key, changes } = fingerprint(hub, task, prs)
+  const { key, changes, reviewed } = fingerprint(hub, task, prs)
   if (!changes.length || key === watch.triaged) return delete watch.pending
-  // the change must stay the same for 5 minutes, so a person who writes several comments is not cut off
-  if (watch.pending?.key !== key) return void (watch.pending = { key, since: Date.now() })
-  if (Date.now() - watch.pending.since < QUIET_MS) return
+  // a submitted review is a finished batch. Other changes must stay the same for 5 minutes, so a person
+  // who writes several comments is not cut off.
+  if (!reviewed) {
+    if (watch.pending?.key !== key) return void (watch.pending = { key, since: Date.now() })
+    if (Date.now() - watch.pending.since < QUIET_MS) return
+  }
 
   const folder = join(hub, '.factory/triage', task.id)
   log(`${name}: triage of ${task.id} for ${changes.length} changes`)
@@ -114,6 +118,7 @@ export function fingerprint(hub, task, prs) {
   const isPerson = (author) => author && author.login.replace(/\[bot\]$/, '') !== FACTORY_LOGIN
   const ids = []
   const changes = []
+  let reviewed = false
   for (const pr of prs) {
     const [owner, repo] = pr.repo.split('/')
     const out = sh('gh', ['api', 'graphql', '-f', `query=${PR_QUERY}`, '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${pr.number}`], hub).out
@@ -128,6 +133,7 @@ export function fingerprint(hub, task, prs) {
       if (!isPerson(item.author) || Date.parse(item.at) <= since) continue
       ids.push(item.id)
       changes.push(`${item.kind} by ${item.author.login}: ${item.url}`)
+      if (item.kind.startsWith('a review (')) reviewed = true
     }
 
     const commit = data.commits.nodes[0]?.commit
@@ -149,7 +155,7 @@ export function fingerprint(hub, task, prs) {
       changes.push(`${pr.url} has a merge conflict with its base branch`)
     }
   }
-  return { key: JSON.stringify(ids.sort()), changes }
+  return { key: JSON.stringify(ids.sort()), changes, reviewed }
 }
 
 // ---- pull requests --------------------------------------------------------------------------------------

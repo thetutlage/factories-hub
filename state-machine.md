@@ -55,7 +55,7 @@ The watcher script looks at the pull requests of each task in `review`.
 
 - When each pull request is merged, it sets the task to `accepting`, and starts accept. Accept promotes the items in the body of the pull request, and sets the task to `done`.
 - When a pull request is closed with no merge, it sets the task to `draft`, and reports it on the issue of the hub in the fleet repository.
-- When a pull request has a change since the last triage, and the change is 5 minutes old, it starts triage on the pull request. A change is a new review, a new comment, a new commit, a new result of a check, or a merge conflict.
+- When a pull request has a change since the last triage, it starts triage on the pull request. A change is a new review, a new comment, a new commit, a new result of a check, or a merge conflict. A submitted review starts triage at the next poll. Each other change starts it when it is 5 minutes old, so that a person can write several comments.
 
 ## Triage
 
