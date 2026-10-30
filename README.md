@@ -43,14 +43,26 @@ The worker builds the hubs of a fleet on one machine, for example a Mac mini at 
 ["git@github.com:you/acme-hub.git"]
 ```
 
-Install the worker once on the machine:
+The worker acts on GitHub as a GitHub App, the factory's identity. Its pull requests, commits and replies come from `<app>[bot]`, so you review them as a reviewer. The machine needs no SSH key and no `gh` login: the worker mints a token of the App for each git and `gh` call (`worker/github.mjs`).
+
+Create the App once, in the settings of your GitHub account (Developer settings, GitHub Apps, New GitHub App):
+
+- **Homepage URL:** the URL of this repository.
+- **Webhook:** off. The worker polls.
+- **Repository permissions:** Contents, Pull requests, Issues and Workflows: read and write. Actions, Checks and Commit statuses: read. Metadata: read.
+- **Where can this GitHub App be installed:** any account, so that you can install it on your account and on your organizations.
+
+Then generate a private key, and install the App on the repositories of the fleet, the hubs and their code repositories, and this repository.
+
+Install the worker once on the machine. When this repository is private, clone it with your own login one time. After the install, the worker uses the App, also to fetch this repository.
 
 ```sh
-git clone git@github.com:thetutlage/factories-hub.git ~/.factory/factories-hub
-node ~/.factory/factories-hub/worker/install.mjs --fleet <git url of the fleet>
+gh repo clone <you>/factories-hub ~/.factory/factories-hub
+mv ~/Downloads/<app>.private-key.pem ~/.factory/github-app.pem && chmod 600 ~/.factory/github-app.pem
+node ~/.factory/factories-hub/worker/install.mjs --fleet <git url of the fleet> --app-id <id of the App> --app-key ~/.factory/github-app.pem
 ```
 
-It needs git, Node, `gh`, Claude Code and Paseo signed in on the machine. Paseo's desktop app does not need to run: use its daemon, and reach it from your phone or laptop. launchd runs the worker every 2 minutes (`--every <seconds>`). Each poll:
+It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code and Paseo signed in. Paseo's desktop app does not need to run: use its daemon, and reach it from your phone or laptop. launchd runs the worker every 2 minutes (`--every <seconds>`). Each poll:
 
 1. Pulls the fleet. A new hub is cloned into `~/factories/` (`--hubs <folder>`) and set up with `scripts/setup.mjs`. The worker then opens an issue in the fleet repository, `<hub> on <machine>`: the hand-off.
 2. Fetches each hub, and fast-forwards its checkout. The worker never edits the checkout. When it has local changes, the worker skips the hub and reports it once.

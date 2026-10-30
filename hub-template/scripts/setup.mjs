@@ -23,7 +23,8 @@ const PASEO = ['paseo', '/Applications/Paseo.app/Contents/Resources/bin/paseo'].
 
 // how each tool proves that it is installed and signed in
 const CHECKS = {
-  gh: ['auth', 'status'],
+  // a call to the API, so that a login and the token of the factory's GitHub App both pass
+  gh: ['api', 'rate_limit'],
   claude: ['auth', 'status'],
   docker: ['info'],
 }

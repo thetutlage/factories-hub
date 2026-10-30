@@ -12,6 +12,7 @@ import { spawnSync } from 'node:child_process'
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { hostname, homedir } from 'node:os'
 import { basename, join } from 'node:path'
+import { env as githubEnv } from './github.mjs'
 
 const HOME = process.env.FACTORY_HOME ?? join(homedir(), '.factory')
 const DRY = process.argv.includes('--dry-run')
@@ -22,6 +23,11 @@ const QUIET_MS = 5 * 60 * 1000
 const config = JSON.parse(readFileSync(join(HOME, 'config.json'), 'utf8'))
 // owner/name of the fleet repository on GitHub, or null for a fleet elsewhere
 const FLEET_REPO = config.fleet.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1] ?? null
+// with a GitHub App in the config, every git and gh call of the worker and its sessions uses the App
+const SESSION_ENV = config.github ? githubEnv() : {}
+Object.assign(process.env, SESSION_ENV)
+const sessionEnv = Object.entries(SESSION_ENV).flatMap(([key, value]) => ['--env', `${key}=${value}`])
+
 const statePath = join(HOME, 'state.json')
 const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : { hubs: {} }
 
@@ -238,7 +244,7 @@ function startBuild(name, hub, hubState, task, folder) {
   }
 
   const agent = paseo([
-    'run', '--no-wait', '--quiet',
+    'run', '--no-wait', '--quiet', ...sessionEnv,
     '--cwd', folder,
     '--provider', factory.build?.provider ?? 'claude',
     // nobody answers prompts in a build: the classifier of auto mode approves or denies each tool
@@ -327,7 +333,7 @@ function review(name, hub, hubState, task, branch, running) {
   }
   const factory = JSON.parse(readFileSync(join(folder, 'factory.json'), 'utf8'))
   const agent = paseo([
-    'run', '--no-wait', '--quiet',
+    'run', '--no-wait', '--quiet', ...sessionEnv,
     '--cwd', folder,
     '--provider', factory.build?.provider ?? 'claude',
     '--mode', factory.build?.mode ?? 'auto',

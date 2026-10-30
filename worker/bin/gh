@@ -1,0 +1,3 @@
+#!/bin/sh
+# gh with a token of the factory's GitHub App. See gh.mjs.
+exec node "$(dirname "$0")/../gh.mjs" "$@"
