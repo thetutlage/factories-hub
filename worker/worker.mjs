@@ -17,6 +17,8 @@ const DRY = process.argv.includes('--dry-run')
 const HOST = hostname().replace(/\.local$/, '')
 
 const config = JSON.parse(readFileSync(join(HOME, 'config.json'), 'utf8'))
+// owner/name of the fleet repository on GitHub, or null for a fleet elsewhere
+const FLEET_REPO = config.fleet.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1] ?? null
 const statePath = join(HOME, 'state.json')
 const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : { hubs: {} }
 
@@ -273,9 +275,6 @@ function removeBuild(hub, folder, task) {
 }
 
 // ---- the hand-off -------------------------------------------------------------------------------------
-
-// owner/name of the fleet repository on GitHub, or null for a fleet elsewhere
-const FLEET_REPO = config.fleet.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1] ?? null
 
 // One issue in the fleet repository for each hub on each machine. The worker opens it with the first
 // report, and comments on it after that. A problem reopens it; a person closes it when it is handled.
