@@ -120,7 +120,8 @@ function pollHub(url) {
   act('git', ['merge', '--quiet', '--ff-only', branch], hub)
 
   const tasks = readTasks(hub)
-  const agents = DRY ? [] : JSON.parse(paseo(['ls', '-a', '--json']).out)
+  // a read, so a dry run lists the sessions too
+  const agents = JSON.parse(paseo(['ls', '-a', '--json']).out)
   // `paseo run --quiet` prints an id that a full id starts with
   const running = (id) => agents.some((agent) => id && agent.id.startsWith(id) && agent.status === 'running')
 
@@ -345,7 +346,7 @@ function reopen(name, hub, hubState, task, branch, closed) {
   try {
     const changed = setStatus(folder, task, 'review', 'draft', `chore: set ${task.id} back to draft, its pull request was closed`, branch)
     if (!changed) return
-    reportOnce(hubState, key, name, `${task.id}: ${closed.map((pr) => pr.url).join(', ')} was closed with no merge. The worker set the task back to \`draft\`. Change the task, or close its issue.`)
+    reportOnce(hubState, key, name, `${task.id}: ${closed.map((pr) => pr.url).join(', ')} was closed with no merge. The worker set the task back to \`draft\`. Change it and probe it again, or discard it.`)
   } finally {
     git(['worktree', 'remove', '--force', folder], hub, { check: false })
   }
