@@ -207,6 +207,9 @@ function build(name, hub, hubState, task, branch) {
     log(`${name}: ${task.id} was claimed elsewhere`)
     return removeBuild(hub, folder, task)
   }
+  // a new build of the task: its earlier reports may come again
+  delete hubState.notified[`stale-${task.id}`]
+  delete hubState.notified[`start-${task.id}`]
 
   // after the claim, a failure leaves the task "building" with no session, so it is reported
   try {

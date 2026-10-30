@@ -47,6 +47,7 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 - Build opens one pull request in each repository of the task, and writes its URL in `pull_requests` of the task.
 - The body of the pull request has the items under `## Context changes` and `## Discovered work`. A merge accepts the task and these items.
 - In a task with `## Rework`, build makes each change that the section gives, on the same branch and pull request.
+- Build does not wait for the checks on GitHub. It runs the checks of the repository, pushes, and sets the status. The watcher script gives each check result to triage.
 
 ## The watcher script
 
