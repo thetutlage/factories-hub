@@ -7,11 +7,11 @@ description: Build — build the next ready change task or exploration with no p
 
 This skill builds one change task or one exploration in each run. No person watches the run. Do not ask questions. When you need a decision, use the stop rule.
 
-**Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub. It gives the path of each repository. When the hub has `mars.yaml`, run `npx @dean0x/mars clone`. It clones each repository that is not in `repos/` yet.
+**Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub. It gives the path of each repository. When a repository of the work is not in `repos/` and the hub has `mars.yaml`, run `npx @dean0x/mars clone`.
 
 ## 1. Pick the work
 
-- When the request names a change task or an exploration, take it. Its status must be `ready`. If it is not, say the status, and stop.
+- When the request names a change task or an exploration, take it. Its status must be `ready`, or `building` when the request says that a worker claimed it for this run. If it is not, say the status, and stop.
 - When the request names a queue, take the work from that queue only.
 - In all other cases, take a change task. When no change task is ready, take an exploration.
 
@@ -40,7 +40,7 @@ Read these files:
 
 ### A change task
 
-1. In each repository in `repos`, make a branch `task/<id>` from the default branch. If the branch exists from an earlier run, use it.
+1. In each repository in `repos`, work on the branch `task/<id>`. When it is checked out, use it. Otherwise run `git fetch origin`, then check out `task/<id>` when it exists from an earlier run, or make it from `origin/<default branch>`.
 2. Make the change that the task gives. Do only that change.
 3. Write an automated check for each acceptance criterion. Use the test tools of the repository.
 4. When you see other work that is necessary, write it under `## Discovered work`. Do not do it.
@@ -58,7 +58,7 @@ In an exploration, make each decision yourself, and write it under `## Evidence`
 
 In a change task, when the work needs a decision that the task, its decisions, the rules and its exploration do not give:
 
-- If the decision changes what the product does for its users or for other systems, or changes stored data, stop. Write the question under `## Questions`. Commit the work on the branch. Set the status to `blocked`. End the run.
+- If the decision changes what the product does for its users or for other systems, or changes stored data, stop. Write the question under `## Questions`. Commit the work on the branch. Set the status to `blocked`, and push the hub (step 7). End the run.
 - If the decision changes only how the code is written, make the decision. Write it and its reason under `## Evidence`. When future tasks must follow the same decision, write it under `## Context changes` too.
 
 ## 5. Run the checks
@@ -66,7 +66,7 @@ In a change task, when the work needs a decision that the task, its decisions, t
 For a change task, run each check that `CLAUDE.md` of the repository gives. If it gives no checks, write that under `## Evidence`.
 
 - When a check fails, fix the code. Try a maximum of three times.
-- When the check still fails, write the failure under `## Evidence`. Set the status to `blocked`. End the run.
+- When the check still fails, write the failure under `## Evidence`. Set the status to `blocked`, and push the hub (step 7). End the run.
 - Do not change a check, skip a test or remove a test to make it pass.
 
 ## 6. Write the evidence
@@ -89,7 +89,7 @@ For an exploration, write these items under `## Evidence`:
 
 1. For a change task, commit the work on the branch, and push the branch. Do not merge.
 2. When the branch has no pull request, open one to the default branch. The title is the id and the title of the task. The body has the goal, the result of each criterion, and the screenshots as links to the hub on GitHub. Do not open it as a draft.
-3. Set the status to `review`. Commit the task file and the screenshots in the hub, and push the hub.
+3. Set the status to `review`. Commit the task file and the screenshots in the hub, and push the hub: `git push origin HEAD:main`. When the push is rejected, run `git fetch origin` and `git rebase origin/main`, then push again. Another person or machine changed other files of the hub, and a build changes only its own task.
 
 ## Hand back
 
