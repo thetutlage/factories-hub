@@ -93,7 +93,25 @@ function cleanUp(hub, hubState, tasks, running) {
     const task = tasks.find((t) => t.id === id)
     if (!['done', 'discarded'].includes(task?.status) || running(build.agent)) continue
     log(`${basename(hub)}: ${id} is ${task.status}, removing its build folder`)
-    if (!DRY) removeFolder(hub, build.folder, task)
+    if (!DRY) {
+      removeFolder(hub, build.folder, task)
+      removeBranches(hub, task)
+    }
     delete hubState.builds[id]
+  }
+}
+
+// deletes the local task/<id> branch of each repository when each of its commits is on origin's task/<id>
+function removeBranches(hub, task) {
+  const branch = `task/${task.id}`
+  for (const repo of task.repos) {
+    const main = join(hub, 'repos', repo)
+    if (!existsSync(main) || !git(['rev-parse', '--verify', '--quiet', branch], main, { check: false }).ok) continue
+    git(['fetch', '--quiet', 'origin'], main, { check: false })
+    if (git(['merge-base', '--is-ancestor', branch, `origin/${branch}`], main, { check: false }).ok) {
+      git(['branch', '--quiet', '-D', branch], main)
+    } else {
+      log(`${basename(hub)}: kept ${branch} in repos/${repo}: it has commits that are not on origin`)
+    }
   }
 }
