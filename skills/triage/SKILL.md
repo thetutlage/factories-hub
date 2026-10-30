@@ -21,6 +21,7 @@ This skill reads the pull requests of one change task in `review`, and chooses t
    - the checks: `gh pr checks <url>`. For each failed check, read its log: `gh run view <run id> --log-failed`;
    - the merge state: `gh pr view <url> --json mergeable`.
 4. Read your comments of the earlier triages on the pull request. They start with `**Triage**`. Do not answer the same thing two times.
+5. When a check or a review fails for a cause that the task does not explain, read the file names in `tasks/`. Open each task that is not `done` and is about the same failure. When one of them fixes the cause, give its id in the report and in the comment.
 
 The request gives the changes since the last triage. Choose the way out for these changes. Use the rest as context.
 
