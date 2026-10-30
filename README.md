@@ -77,6 +77,17 @@ node scripts/update-skills.mjs --from <path>  # a local clone of this repository
 
 It writes the commit it copied to `skills.commit` in `factory.json`. Review the diff, then commit it.
 
+## Mirror tasks to GitHub issues
+
+`scripts/sync-issues.mjs` gives each task an issue in its first repository. A task takes part when its front matter has an `issue:` key; an empty one creates the issue. The issue gets the task's text, a `status: <status>` label, and the milestone that `issues.milestones` in `factory.json` gives for the task's `milestone`. It is closed when the task is `done` or `discarded`.
+
+```sh
+node scripts/sync-issues.mjs T-009      # these tasks
+node scripts/sync-issues.mjs            # every task
+```
+
+The skills run it for their task after each change of its status. A hub without the script has no issues. Edit the task in the hub, not the issue: the next sync replaces the issue's text.
+
 ## The flow
 
 ```

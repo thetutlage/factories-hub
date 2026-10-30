@@ -9,6 +9,8 @@ This skill builds one change task or one exploration in each run. No person watc
 
 **Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub. It gives the path of each repository. When a repository of the work is not in `repos/` and the hub has `mars.yaml`, run `npx @dean0x/mars clone`.
 
+**Issues.** When the hub has `scripts/sync-issues.mjs`, run `node scripts/sync-issues.mjs <id>` after each change to the status of a change task. It updates the GitHub issue of the task: its text, its `status:` label, and closed or open.
+
 ## 1. Pick the work
 
 - When the request names a change task or an exploration, take it. Its status must be `ready`, or `building` when the request says that a worker claimed it for this run. If it is not, say the status, and stop.
