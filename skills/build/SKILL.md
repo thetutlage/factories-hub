@@ -7,7 +7,7 @@ description: Build — build the next ready change task or exploration with no p
 
 This skill builds one change task or one exploration in each run. No person watches the run. Do not ask questions. When you need a decision, use the stop rule.
 
-**Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub. It gives the path of each repository.
+**Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub. It gives the path of each repository. When the hub has `mars.yaml`, run `npx @dean0x/mars clone`. It clones each repository that is not in `repos/` yet.
 
 ## 1. Pick the work
 
