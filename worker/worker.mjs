@@ -1,7 +1,8 @@
 // The factory worker: one poll of the fleet. launchd runs it every few minutes (see install.mjs).
 // For each hub in the fleet's hubs.json, it clones and sets up the hub once, then builds the next ready
 // change task: it claims the task on GitHub, prepares a build folder of worktrees, and starts one Paseo
-// session in it. A hub with nothing to build costs a `git fetch` and no session.
+// session in it. A task in review is accepted when each of its pull requests is merged. A hub with nothing
+// to build or accept costs a `git fetch`, a `gh pr list` for each task in review, and no session.
 //
 //   node worker/worker.mjs            one poll
 //   node worker/worker.mjs --dry-run  print what the poll would do
@@ -88,6 +89,7 @@ function pollHub(url) {
   const name = basename(url).replace(/\.git$/, '')
   const hub = join(config.hubsDir, name)
   const hubState = (state.hubs[name] ??= { builds: {}, notified: {} })
+  hubState.accepts ??= {}
 
   if (!existsSync(hub)) {
     log(`${name}: new hub, cloning`)
@@ -123,6 +125,15 @@ function pollHub(url) {
   const running = (id) => agents.some((agent) => id && agent.id.startsWith(id) && agent.status === 'running')
 
   cleanUp(hub, hubState, tasks, running)
+
+  // the tasks in review, next to the build: accepted once merged, back to draft when a pull request is closed
+  for (const task of tasks.filter((t) => t.status === 'review')) {
+    try {
+      review(name, hub, hubState, task, branch, running)
+    } catch (error) {
+      log(`${name}: ${task.id}: ${error.message}`)
+    }
+  }
 
   // one build at a time: a claimed task, or a session that is still running
   const claimed = tasks.find((task) => task.status === 'building')
@@ -238,14 +249,24 @@ function startBuild(name, hub, hubState, task, folder) {
 
 // sets the task to building on GitHub, so another machine does not build it too
 function claim(folder, task, branch) {
+  return setStatus(folder, task, 'ready', 'building', `chore: claim ${task.id} for a build on ${HOST}`, branch)
+}
+
+// changes the status of a task in a hub worktree, pushes it, and syncs its issue when the hub has the script
+function setStatus(folder, task, from, to, message, branch) {
   const path = join(folder, 'tasks', task.file)
-  writeFileSync(path, readFileSync(path, 'utf8').replace(/^status: ready$/m, 'status: building'))
+  const src = readFileSync(path, 'utf8')
+  if (!new RegExp(`^status: ${from}$`, 'm').test(src)) return false
+  writeFileSync(path, src.replace(new RegExp(`^status: ${from}$`, 'm'), `status: ${to}`))
   git(['add', join('tasks', task.file)], folder)
-  git(['commit', '--quiet', '-m', `chore: claim ${task.id} for a build on ${HOST}`], folder)
+  git(['commit', '--quiet', '-m', message], folder)
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (git(['push', '--quiet', 'origin', 'HEAD:main'], folder, { check: false }).ok) return true
+    if (git(['push', '--quiet', 'origin', 'HEAD:main'], folder, { check: false }).ok) {
+      if (existsSync(join(folder, 'scripts/sync-issues.mjs'))) sh('node', ['scripts/sync-issues.mjs', task.id], folder, { check: false })
+      return true
+    }
     git(['fetch', '--quiet', 'origin'], folder)
-    // a rebase that conflicts on the status line means someone else claimed the task
+    // a rebase that conflicts on the status line means someone else changed the status
     if (!git(['rebase', '--quiet', branch], folder, { check: false }).ok) {
       git(['rebase', '--abort'], folder, { check: false })
       return false
@@ -254,14 +275,92 @@ function claim(folder, task, branch) {
   return false
 }
 
-// removes the build folders of finished tasks
+// ---- a review -------------------------------------------------------------------------------------------
+
+// owner/name of each repository of the hub, from mars.yaml
+function repoSlugs(hub) {
+  const yaml = readFileSync(join(hub, 'mars.yaml'), 'utf8')
+  return Object.fromEntries(
+    [...yaml.matchAll(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/gm)].map((m) => [m[2], m[1]])
+  )
+}
+
+// the newest pull request of task/<id> in each repository of the task, or null when one is missing
+function pullRequests(hub, task) {
+  const slugs = repoSlugs(hub)
+  const prs = []
+  for (const repo of task.repos) {
+    if (!slugs[repo]) return null
+    const list = sh('gh', ['pr', 'list', '--repo', slugs[repo], '--head', `task/${task.id}`, '--state', 'all', '--limit', '1', '--json', 'number,state,url'], hub)
+    const pr = JSON.parse(list.out)[0]
+    if (!pr) return null
+    prs.push(pr)
+  }
+  return prs
+}
+
+function review(name, hub, hubState, task, branch, running) {
+  const accept = hubState.accepts[task.id]
+  if (accept) {
+    if (!running(accept.agent)) {
+      reportOnce(hubState, `stale-accept-${task.id}`, name, `${task.id} is merged, but its accept session has ended and the task is still \`review\`. Look at the session in Paseo, then run the accept skill for it.`)
+    }
+    return
+  }
+  const prs = pullRequests(hub, task)
+  if (!prs || prs.some((pr) => pr.state === 'OPEN')) return
+
+  const closed = prs.filter((pr) => pr.state === 'CLOSED')
+  if (closed.length) return reopen(name, hub, hubState, task, branch, closed)
+  if (DRY) return log(`would accept ${task.id}: ${prs.map((pr) => pr.url).join(', ')}`)
+
+  // a worktree of the hub for the accept session, which pushes with HEAD:main
+  const folder = join(hub, '.factory/accepts', task.id)
+  if (!existsSync(folder)) git(['worktree', 'add', '--quiet', '--detach', folder, branch], hub)
+  else {
+    git(['fetch', '--quiet', 'origin'], folder)
+    git(['checkout', '--quiet', '--detach', branch], folder)
+  }
+  const factory = JSON.parse(readFileSync(join(folder, 'factory.json'), 'utf8'))
+  const agent = paseo([
+    'run', '--no-wait', '--quiet',
+    '--cwd', folder,
+    '--provider', factory.build?.provider ?? 'claude',
+    '--mode', factory.build?.mode ?? 'auto',
+    '--title', `${name} accept ${task.id}`,
+    `Use the accept skill for ${task.id}. The person merged each of its pull requests: ${prs.map((pr) => pr.url).join(', ')}.`,
+  ]).out
+  hubState.accepts[task.id] = { agent, folder, started: new Date().toISOString() }
+  log(`${name}: ${task.id} is merged, started its accept in session ${agent}`)
+}
+
+// a pull request closed with no merge: the task goes back to draft, and the person decides what is next
+function reopen(name, hub, hubState, task, branch, closed) {
+  const key = `closed-${task.id}-${closed.map((pr) => pr.number).join('-')}`
+  if (hubState.notified[key]) return
+  if (DRY) return log(`would set ${task.id} back to draft: ${closed.map((pr) => pr.url).join(', ')} closed`)
+  const folder = join(hub, '.factory/status', task.id)
+  if (existsSync(folder)) git(['worktree', 'remove', '--force', folder], hub, { check: false })
+  git(['worktree', 'add', '--quiet', '--detach', folder, branch], hub)
+  try {
+    const changed = setStatus(folder, task, 'review', 'draft', `chore: set ${task.id} back to draft, its pull request was closed`, branch)
+    if (!changed) return
+    reportOnce(hubState, key, name, `${task.id}: ${closed.map((pr) => pr.url).join(', ')} was closed with no merge. The worker set the task back to \`draft\`. Change the task, or close its issue.`)
+  } finally {
+    git(['worktree', 'remove', '--force', folder], hub, { check: false })
+  }
+}
+
+// removes the build and accept folders of finished tasks
 function cleanUp(hub, hubState, tasks, running) {
-  for (const [id, build] of Object.entries(hubState.builds)) {
-    const task = tasks.find((t) => t.id === id)
-    if (!['done', 'discarded'].includes(task?.status) || running(build.agent)) continue
-    log(`${basename(hub)}: ${id} is ${task.status}, removing its build folder`)
-    if (!DRY) removeBuild(hub, build.folder, task)
-    delete hubState.builds[id]
+  for (const kind of ['builds', 'accepts']) {
+    for (const [id, entry] of Object.entries(hubState[kind])) {
+      const task = tasks.find((t) => t.id === id)
+      if (!['done', 'discarded'].includes(task?.status) || running(entry.agent)) continue
+      log(`${basename(hub)}: ${id} is ${task.status}, removing its ${kind === 'builds' ? 'build' : 'accept'} folder`)
+      if (!DRY) removeBuild(hub, entry.folder, task)
+      delete hubState[kind][id]
+    }
   }
 }
 

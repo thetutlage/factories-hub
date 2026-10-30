@@ -59,8 +59,9 @@ It needs git, Node, `gh`, Claude Code and Paseo signed in on the machine. Paseo'
 5. Claims the task: sets it to `building` and pushes the hub, so another machine does not take it.
 6. Makes the build folder `.factory/builds/<id>`: a worktree of the hub, and a worktree of each repository of the task on `task/<id>`. It copies the files in `repos.<name>.copy` of `factory.json`, such as `.env`, and runs `repos.<name>.setup`.
 7. Starts one Paseo session in the folder with the build skill.
+8. Checks each change task in `review`, next to the build. When each pull request of the task is merged, it starts a Paseo session with the accept skill in `.factory/accepts/<id>`, a worktree of the hub. The session promotes the context changes, which the build wrote in the body of the pull request, and sets the task to `done`. When a pull request is closed with no merge, the worker sets the task back to `draft` and reports it.
 
-A hub with nothing to build costs a `git fetch` and no session. When a task is `done`, the worker removes its build folder.
+A hub with nothing to build costs a `git fetch` and no session. When a task is `done`, the worker removes its build and accept folders.
 
 The worker reports to the hub's issue in the fleet repository, once for each problem: a failed setup, a checkout with local changes, a build that could not start, and a claimed task whose session ended without a status change. A report comments on the issue and reopens it. Close the issue when the problem is handled. The log is `~/.factory/worker.log`.
 

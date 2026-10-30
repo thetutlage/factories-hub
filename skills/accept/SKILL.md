@@ -15,6 +15,8 @@ This skill helps a person review one change task or one exploration. Only an acc
 
 When the request names no item, list each change task and exploration with the status `review`, and ask which one.
 
+When the request says that the person merged each pull request of a change task, go to [Accepted by merge](#accepted-by-merge).
+
 ## 2. An exploration
 
 Show the question, what the build learned, and the path of each artifact. Ask the person to look at the artifacts.
@@ -64,6 +66,16 @@ When a new decision replaces an old decision, set the status of the old decision
 1. Add each item under `## Discovered work` to `inbox.md`, with the id of the task.
 2. Set the status to `done`.
 3. When the task has an `exploration`, and each change task with that `exploration` is `done`, set the status of the exploration to `consumed`.
+
+## Accepted by merge
+
+The factory worker starts this part when each pull request of a change task in `review` is merged. No person watches it. Do not ask questions.
+
+1. The status must be `review`. If it is not, say the status, and stop.
+2. Under `## Review`, write `Accepted by merge on <date>`, and the link of each pull request.
+3. Do the steps of [Promote](#promote). Write each item under `## Context changes` as it is written. The person read the items in the body of the pull request, and the merge accepted them.
+4. Do the steps of [Finish](#finish).
+5. Commit the hub, and push it: `git push origin HEAD:main`. When the push is rejected, run `git fetch origin` and `git rebase origin/main`, then push again.
 
 ## Hand back
 
