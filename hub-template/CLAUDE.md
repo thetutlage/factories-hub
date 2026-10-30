@@ -24,19 +24,7 @@ The factory has two queues.
 - A **change task** changes the product. Its work is on a branch in each repository. The branch is merged.
 - An **exploration** builds something to answer a question. Its work is in its folder in `explorations/`. It does not change the repositories. Its artifacts stay, because they are progress.
 
-A change task moves through these statuses:
-
-`draft` → `probing` → `ready` → `building` → `review` → `done`
-
-The build sets `blocked` when it stops. A person answers the questions of a blocked task. Then `probe` sets it to `ready`.
-
-An exploration moves through these statuses:
-
-`ready` → `building` → `review` → `done` → `consumed`
-
-- `accept` can set an exploration to `discarded` at review.
-- `intake` turns a `done` exploration into change tasks. The change tasks give its id in `exploration`.
-- When each change task of an exploration is `done`, the exploration is `consumed`.
+`.claude/state-machine.md` gives the statuses of change tasks and explorations, who changes them, and the rules of each change. `intake` turns a `done` exploration into change tasks. The change tasks give its id in `exploration`.
 
 A task or an exploration can have a `milestone`. To see how far a milestone is, count its items by status.
 
@@ -70,4 +58,5 @@ Write one item for each change:
 | `intake` | Turns any input into change tasks or an exploration, or into one line in the inbox. Turns a done exploration into change tasks. |
 | `probe`  | Settles with the person each thing that a change task leaves open                                                               |
 | `build`  | Builds one ready change task or exploration. No person watches it.                                                              |
+| `triage` | Reads the pull requests of a task in review after they change, and chooses the way out. The watcher script starts it.           |
 | `accept` | Reviews the work with a person. Promotes the facts of a change task to `context/`.                                              |
