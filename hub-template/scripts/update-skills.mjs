@@ -1,4 +1,5 @@
-// Copies the factory skills from factories-hub into .claude/skills/, so the hub carries them in git.
+// Copies the factory skills from factories-hub into .claude/skills/, and its state machine to
+// .claude/state-machine.md, so the hub carries them in git.
 // The commit they came from is written to `skills.commit` in factory.json. Review the diff, then commit it.
 // Change a skill in factories-hub, not in the hub: this script overwrites the hub's copy.
 //
@@ -11,7 +12,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 const HUB = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
-const SKILLS = ['intake', 'probe', 'build', 'accept']
+const SKILLS = ['intake', 'probe', 'build', 'accept', 'triage']
+const STATE_MACHINE = '.claude/state-machine.md'
 const FORCE = process.argv.includes('--force')
 const fromIndex = process.argv.indexOf('--from')
 const FROM = fromIndex === -1 ? null : resolve(process.argv[fromIndex + 1])
@@ -26,9 +28,9 @@ function git(args, cwd) {
 }
 
 // the hub's own changes to a skill would be lost, so they stop the update
-const changed = SKILLS.filter((skill) => git(['status', '--porcelain', '--', `.claude/skills/${skill}`], HUB) !== '')
+const changed = [...SKILLS.map((skill) => `.claude/skills/${skill}`), STATE_MACHINE].filter((path) => git(['status', '--porcelain', '--', path], HUB) !== '')
 if (changed.length && !FORCE) {
-  console.error(`Uncommitted changes in .claude/skills/: ${changed.join(', ')}. Commit or discard them, or pass --force.`)
+  console.error(`Uncommitted changes in ${changed.join(', ')}. Commit or discard them, or pass --force.`)
   process.exit(1)
 }
 
@@ -41,7 +43,7 @@ if (!source) {
   source = tmp
 }
 let commit = git(['rev-parse', 'HEAD'], source)
-if (FROM && git(['status', '--porcelain', '--', 'skills'], source) !== '') commit += '-dirty'
+if (FROM && git(['status', '--porcelain', '--', 'skills', 'state-machine.md'], source) !== '') commit += '-dirty'
 
 for (const skill of SKILLS) {
   const from = join(source, 'skills', skill)
@@ -50,6 +52,7 @@ for (const skill of SKILLS) {
   rmSync(to, { recursive: true, force: true })
   cpSync(from, to, { recursive: true })
 }
+cpSync(join(source, 'state-machine.md'), join(HUB, STATE_MACHINE))
 if (tmp) rmSync(tmp, { recursive: true, force: true })
 
 // only the commit line changes, so the rest of factory.json keeps its layout
@@ -59,5 +62,5 @@ const updated = /"commit":\s*"[^"]*"/.test(text)
   : text.replace(/("ref":\s*"[^"]*")/, `$1,\n    "commit": "${commit}"`)
 writeFileSync(configPath, updated)
 
-console.log(`Copied ${SKILLS.join(', ')} from ${FROM ?? config.skills.repo} at ${commit}`)
-console.log(git(['status', '--short', '--', '.claude/skills', 'factory.json'], HUB) || 'No changes')
+console.log(`Copied ${SKILLS.join(', ')} and the state machine from ${FROM ?? config.skills.repo} at ${commit}`)
+console.log(git(['status', '--short', '--', '.claude/skills', STATE_MACHINE, 'factory.json'], HUB) || 'No changes')

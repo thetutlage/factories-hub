@@ -9,7 +9,7 @@ This skill helps a person review one change task or one exploration. Only an acc
 
 **Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub. It gives the path of each repository.
 
-**Issues.** When the hub has `scripts/sync-issues.mjs`, run `node scripts/sync-issues.mjs <id>` after each change to the status of a change task. It updates the GitHub issue of the task: its text, its `status:` label, and closed or open.
+**State machine.** `.claude/state-machine.md` gives each status, who changes it, and what to do at each change of status. Follow it.
 
 ## 1. Pick the work
 
@@ -45,7 +45,7 @@ Show:
 
 Ask the person to accept or to reject the task. Write the result and the reason under `## Review`.
 
-- When the person rejects the task, ask what to do next. To build again, ask the person to write the changes as review comments on the pull request, and set the status to `ready`. The next build reads them. To change the task first, set the status to `draft`. Stop.
+- When the person rejects the task, ask what to do next. To build again, ask the person to write the changes as review comments on the pull request. Do not change the status: the watcher script gives the comments to triage. To change the task first, set the status to `draft`. Stop.
 - When the person accepts the task, ask if you must merge the pull requests. Merge only when the person says yes, with `gh pr merge --squash`. Then pull the default branch in each repository.
 
 ### Promote
@@ -69,13 +69,12 @@ When a new decision replaces an old decision, set the status of the old decision
 
 ## Accepted by merge
 
-The factory worker starts this part when each pull request of a change task in `review` is merged. No person watches it. Do not ask questions.
+The watcher script starts this part when each pull request of a change task is merged. It set the status to `accepting`. No person watches it. Do not ask questions.
 
-1. The status must be `review`. If it is not, say the status, and stop.
+1. The status must be `accepting`. If it is not, say the status, and stop.
 2. Under `## Review`, write `Accepted by merge on <date>`, and the link of each pull request.
 3. Do the steps of [Promote](#promote). Write each item under `## Context changes` as it is written. The person read the items in the body of the pull request, and the merge accepted them.
-4. Do the steps of [Finish](#finish).
-5. Commit the hub, and push it: `git push origin HEAD:main`. When the push is rejected, run `git fetch origin` and `git rebase origin/main`, then push again.
+4. Commit the files that you wrote in `context/`, `inbox.md` and the task. Then do the steps of [Finish](#finish).
 
 ## Hand back
 

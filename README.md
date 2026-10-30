@@ -1,8 +1,10 @@
 # Factories hub
 
-The factory: four skills, and a template for a product hub.
+The factory: five skills, a state machine, a worker, and a template for a product hub.
 
-- `skills/` — `intake`, `probe`, `build` and `accept`. They work the same for each product and each stack.
+- `state-machine.md` — the statuses of the work, who changes them, and the rules of each change. It is the only place for these rules.
+- `skills/` — `intake`, `probe`, `build`, `triage` and `accept`. They work the same for each product and each stack.
+- `worker/` — the scripts that build and watch the work on a factory machine.
 - `hub-template/` — the files of a product hub. Copy it one time for each product.
 
 The hub is above the code repositories. Run the agents in the hub.
@@ -66,22 +68,18 @@ It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code 
 
 1. Pulls the fleet. A new hub is cloned into `~/factories/` (`--hubs <folder>`) and set up with `scripts/setup.mjs`. The worker then opens an issue in the fleet repository, `<hub> on <machine>`: the hand-off.
 2. Fetches each hub, and fast-forwards its checkout. The worker never edits the checkout. When it has local changes, the worker skips the hub and reports it once.
-3. Waits while a change task of the hub is `building`, or a build session runs.
-4. Takes the next ready change task, by the rule of the build skill. `build.repos` in `factory.json` limits it to tasks of those repositories.
-5. Claims the task: sets it to `building` and pushes the hub, so another machine does not take it.
-6. Makes the build folder `.factory/builds/<id>`: a worktree of the hub, and a worktree of each repository of the task on `task/<id>`. It copies the files in `repos.<name>.copy` of `factory.json`, such as `.env`, and runs `repos.<name>.setup`.
-7. Starts one Paseo session in the folder with the build skill.
-8. Checks each change task in `review`, next to the build. When each pull request of the task is merged, it starts a Paseo session with the accept skill in `.factory/accepts/<id>`, a worktree of the hub. The session promotes the context changes, which the build wrote in the body of the pull request, and sets the task to `done`. When a pull request is closed with no merge, the worker sets the task back to `draft` and reports it.
+3. Runs the watcher (`worker/watcher.mjs`) on each task in `review` and `accepting`. A merge starts accept, a closed pull request sets the task back to `draft`, and other changes on a pull request start triage.
+4. Runs the builder (`worker/builder.mjs`): one build at a time. It claims the next ready task, makes the build folder `.factory/builds/<id>` with a worktree of the hub and of each repository of the task on `task/<id>`, copies the files in `repos.<name>.copy` of `factory.json`, runs `repos.<name>.setup`, and starts one Paseo session with the build skill. `build.repos` in `factory.json` limits it to tasks of those repositories.
 
-A hub with nothing to build costs a `git fetch` and no session. When a task is `done`, the worker removes its build and accept folders.
+`state-machine.md` gives the rules that the watcher and the builder follow. A hub with nothing to do costs a `git fetch`, a look at the pull requests of each task in review, and no session. When a task is `done`, the worker removes its folders.
 
-The worker reports to the hub's issue in the fleet repository, once for each problem: a failed setup, a checkout with local changes, a build that could not start, and a claimed task whose session ended without a status change. A report comments on the issue and reopens it. Close the issue when the problem is handled. The log is `~/.factory/worker.log`.
+The worker reports to the hub's issue in the fleet repository, once for each problem: a failed setup, a checkout with local changes, a build that could not start, a claimed task whose session ended without a status change, an accept session that ended without `done`, and a pull request closed with no merge. Triage reports a fault outside a task there too. A report comments on the issue and reopens it. Close the issue when the problem is handled. The log is `~/.factory/worker.log`.
 
 `node worker/worker.mjs --dry-run` prints what a poll would do. `node worker/install.mjs --uninstall` removes the launchd job.
 
 ## Update the skills
 
-The skills are files in the hub, copied from this repository. Change a skill here, not in a hub, then update each hub:
+The skills are files in the hub, copied from this repository with the state machine (`.claude/state-machine.md`). Change them here, not in a hub, then update each hub:
 
 ```sh
 node scripts/update-skills.mjs                # the latest commit of skills.ref

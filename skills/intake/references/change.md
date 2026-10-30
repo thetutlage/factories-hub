@@ -7,6 +7,7 @@ repos: []
 depends_on: []
 decisions: []
 issue:
+pull_requests: []
 ---
 
 # <title>

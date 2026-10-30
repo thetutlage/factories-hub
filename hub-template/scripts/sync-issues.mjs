@@ -14,7 +14,7 @@ import { join } from 'node:path'
 const HUB = new URL('..', import.meta.url).pathname
 const DRY = process.argv.includes('--dry-run')
 const IDS = process.argv.slice(2).filter((arg) => /^T-\d+$/.test(arg))
-const STATUSES = ['draft', 'probing', 'ready', 'building', 'review', 'blocked', 'done', 'discarded']
+const STATUSES = ['draft', 'probing', 'ready', 'building', 'review', 'blocked', 'accepting', 'done', 'discarded']
 const COLORS = {
   draft: 'd4d4d8',
   probing: 'c4b5fd',
@@ -22,6 +22,7 @@ const COLORS = {
   building: '93c5fd',
   review: 'fde047',
   blocked: 'fca5a5',
+  accepting: '5eead4',
   done: 'a1a1aa',
   discarded: 'a1a1aa',
 }

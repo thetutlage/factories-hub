@@ -7,7 +7,7 @@ description: Probe — find each thing that a change task leaves unsettled, and 
 
 **Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub.
 
-**Issues.** When the hub has `scripts/sync-issues.mjs`, run `node scripts/sync-issues.mjs <id>` after each change to the status of a change task. It updates the GitHub issue of the task: its text, its `status:` label, and closed or open.
+**State machine.** `.claude/state-machine.md` gives each status, who changes it, and what to do at each change of status. Follow it.
 
 Read the task in `tasks/` that the request names. When the request names no task, list each task with the status `draft`, `probing` or `blocked`, and ask which one. When the status is not one of these, say the status, and stop. Set the status to `probing`.
 
@@ -26,7 +26,7 @@ Read the task, and the code and the systems that it uses. Find each thing that t
 
 - Write each answer in the task. When an answer opens a new question, ask it in the next group.
 
-When a build set the task to `blocked`, start from its questions under `## Questions`.
+When a build or triage set the task to `blocked`, start from its questions under `## Questions`.
 
 The task is ready when nothing is unsettled. Set the status to `ready`.
 

@@ -9,6 +9,8 @@ This skill turns one input into change tasks, into an exploration, or into one l
 
 **Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub.
 
+**State machine.** `.claude/state-machine.md` gives each status, who changes it, and what to do at each change of status. Follow it.
+
 ## 1. Read the context
 
 Read these files:
@@ -67,7 +69,6 @@ Copy `references/change.md` to `tasks/T-<number>-<slug>.md`. Use the next free n
 4. In `repos`, give the name of each repository that the task changes.
 5. In `decisions`, give the number of each decision that applies. Do not copy the text of a decision.
 6. Keep the task small. One task gives one change that a person can check. When the work gives two changes, write two tasks and set `depends_on`.
-7. When the hub has `scripts/sync-issues.mjs`, run `node scripts/sync-issues.mjs <id>` for each change task that you wrote. It makes the GitHub issue of the task, with the label `status: draft`, and writes its URL in `issue`.
 
 ### An exploration
 

@@ -14,7 +14,7 @@ const HUB = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
 const NAME = basename(HUB)
 const DRY = process.argv.includes('--dry-run')
 const NO_PASEO = process.argv.includes('--no-paseo')
-const SKILLS = ['intake', 'probe', 'build', 'accept']
+const SKILLS = ['intake', 'probe', 'build', 'accept', 'triage']
 
 const config = JSON.parse(readFileSync(join(HUB, 'factory.json'), 'utf8'))
 
@@ -64,6 +64,7 @@ console.log('  All present')
 // 2. the skills are committed in the hub; a hub that has none yet copies them from factories-hub
 console.log('\nSkills')
 const absent = SKILLS.filter((skill) => !existsSync(join(HUB, '.claude/skills', skill, 'SKILL.md')))
+if (!existsSync(join(HUB, '.claude/state-machine.md'))) absent.push('the state machine')
 if (absent.length === 0) console.log(`  All present, from factories-hub at ${config.skills.commit ?? 'an unknown commit'}`)
 else {
   run('node', [join(HUB, 'scripts/update-skills.mjs')])
