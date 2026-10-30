@@ -92,14 +92,18 @@ function pollHub(url) {
     act('git', ['clone', '--quiet', url, hub], config.hubsDir)
   }
   if (!hubState.ready) {
-    if (!DRY && !existsSync(join(hub, 'scripts/setup.mjs'))) return notifyOnce(hubState, 'not-a-hub', name, `${name} has no scripts/setup.mjs, so it is not a factory hub. The worker skips it.`)
+    if (!DRY && !existsSync(join(hub, 'scripts/setup.mjs'))) return reportOnce(hubState, 'not-a-hub', name, `\`${name}\` has no \`scripts/setup.mjs\`, so it is not a factory hub. The worker skips it.`)
     log(`${name}: running setup`)
     if (!DRY) {
       const setup = sh('node', ['scripts/setup.mjs'], hub, { check: false })
-      if (!setup.ok) return notifyOnce(hubState, 'setup-failed', name, `Setup of ${name} on ${HOST} failed:\n\n${(setup.err || setup.out).slice(-1500)}`)
+      if (!setup.ok) return reportOnce(hubState, 'setup-failed', name, `The setup failed. The worker tries it again on each poll:\n\n\`\`\`\n${(setup.err || setup.out).slice(-1500)}\n\`\`\``)
     }
     hubState.ready = true
-    notify(name, `${name} is ready on ${HOST}. The worker builds its ready change tasks from now on.`, hub)
+    delete hubState.notified['setup-failed']
+  }
+  // the hand-off, tried again on the next poll when GitHub cannot be reached
+  if (!hubState.readyReported) {
+    hubState.readyReported = report(hubState, name, `**Ready.** \`${name}\` is set up on \`${HOST}\` in \`${hub}\`. The worker builds its ready change tasks from now on.`, { problem: false })
   }
 
   // the main checkout follows origin and is never edited
@@ -107,7 +111,7 @@ function pollHub(url) {
   const branch = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], hub, { check: false }).out || 'origin/main'
   const dirty = git(['status', '--porcelain'], hub).out !== ''
   const behindOnly = git(['merge-base', '--is-ancestor', 'HEAD', branch], hub, { check: false }).ok
-  if (dirty || !behindOnly) return notifyOnce(hubState, 'checkout', name, `The checkout of ${name} on ${HOST} has local changes or commits. The worker does not touch it, and builds nothing in it until it is clean.`)
+  if (dirty || !behindOnly) return reportOnce(hubState, 'checkout', name, `The checkout \`${hub}\` has local changes or commits. The worker does not touch it, and builds nothing in it until it is clean.`)
   delete hubState.notified.checkout
   act('git', ['merge', '--quiet', '--ff-only', branch], hub)
 
@@ -124,7 +128,7 @@ function pollHub(url) {
     const build = hubState.builds[claimed.id]
     // a build that never started was reported when it failed
     if (build?.agent && !running(build.agent)) {
-      notifyOnce(hubState, `stale-${claimed.id}`, name, `${claimed.id} in ${name} is still "building", but its session on ${HOST} has ended. Look at the session, then set the task's status.`)
+      reportOnce(hubState, `stale-${claimed.id}`, name, `${claimed.id} is still \`building\`, but its session has ended. Look at the session in Paseo, then set the task's status.`)
     }
     return
   }
@@ -187,7 +191,7 @@ function build(name, hub, hubState, task, branch) {
     startBuild(name, hub, hubState, task, folder)
   } catch (error) {
     hubState.builds[task.id] = { agent: null, folder, started: new Date().toISOString() }
-    notifyOnce(hubState, `start-${task.id}`, name, `${task.id} in ${name} is claimed, but its build could not start on ${HOST}:\n\n${error.message.slice(-1500)}\n\nFix the cause, then set the task back to "ready".`)
+    reportOnce(hubState, `start-${task.id}`, name, `${task.id} is claimed, but its build could not start:\n\n\`\`\`\n${error.message.slice(-1500)}\n\`\`\`\n\nFix the cause, then set the task back to \`ready\`.`)
   }
 }
 
@@ -268,24 +272,33 @@ function removeBuild(hub, folder, task) {
   rmSync(folder, { recursive: true, force: true })
 }
 
-// ---- messages -------------------------------------------------------------------------------------------
+// ---- the hand-off -------------------------------------------------------------------------------------
 
-// a short Paseo session on the smallest model that only shows the message, so it reaches the phone.
-// A message that cannot be sent stays in the log and does not stop the poll.
-function notify(name, message, cwd = config.hubsDir) {
+// owner/name of the fleet repository on GitHub, or null for a fleet elsewhere
+const FLEET_REPO = config.fleet.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1] ?? null
+
+// One issue in the fleet repository for each hub on each machine. The worker opens it with the first
+// report, and comments on it after that. A problem reopens it; a person closes it when it is handled.
+// A report that cannot reach GitHub stays in the log, returns false, and does not stop the poll.
+function report(hubState, name, message, { problem = true } = {}) {
   log(`${name}: ${message.split('\n')[0]}`)
-  if (DRY) return
-  const sent = sh(config.paseo, [
-    'run', '--no-wait', '--quiet', '--cwd', cwd,
-    '--provider', config.notifyProvider ?? 'claude/claude-haiku-5-5',
-    '--title', `${name}: factory worker`,
-    `Reply with the message below, word for word, and nothing else. Do not use any tools.\n\n${message}`,
-  ], HOME, { check: false })
-  if (!sent.ok) log(`${name}: the message did not reach Paseo: ${sent.err || sent.out}`)
+  if (DRY) return false
+  if (!FLEET_REPO) return true
+  const gh = (args) => sh('gh', [...args, '--repo', FLEET_REPO], HOME, { check: false })
+  if (!hubState.issue) {
+    const created = gh(['issue', 'create', '--title', `${name} on ${HOST}`, '--body', message])
+    if (!created.ok) return log(`${name}: the report did not reach GitHub: ${created.err || created.out}`) ?? false
+    hubState.issue = Number(created.out.match(/\/issues\/(\d+)/)?.[1])
+    return true
+  }
+  const commented = gh(['issue', 'comment', String(hubState.issue), '--body', message])
+  if (!commented.ok) return log(`${name}: the report did not reach GitHub: ${commented.err || commented.out}`) ?? false
+  if (problem) gh(['issue', 'reopen', String(hubState.issue)])
+  return true
 }
 
-function notifyOnce(hubState, key, name, message) {
+function reportOnce(hubState, key, name, message) {
   if (hubState.notified[key]) return
   hubState.notified[key] = new Date().toISOString()
-  notify(name, message)
+  report(hubState, name, message)
 }
