@@ -5,9 +5,8 @@
     "ref": "main"
   },
   "repos": {},
-  "schedule": {
-    "every": "30m",
+  "build": {
     "provider": "claude",
-    "prompt": "Use the build skill. Build the next ready change task. If a change task has the status building, say Busy and stop."
+    "mode": "auto"
   }
 }

@@ -1,10 +1,11 @@
 // Gets this hub ready on this machine: checks the tools, checks the skills, clones the repositories,
-// runs their setup, and schedules the builds in Paseo. Run it in a fresh clone of the hub, and again at
-// any time: it changes only what is missing. The hub's name and path come from the folder it runs in.
+// runs their setup, and adds the hub to Paseo. Run it in a fresh clone of the hub, and again at any time:
+// it changes only what is missing. The hub's name and path come from the folder it runs in. The factory
+// worker (worker/ in factories-hub) runs it for each hub of its fleet, and then starts the builds.
 //
 //   node scripts/setup.mjs                set up everything
 //   node scripts/setup.mjs --dry-run      print what would change
-//   node scripts/setup.mjs --no-schedule  skip Paseo
+//   node scripts/setup.mjs --no-paseo     skip Paseo
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join, relative } from 'node:path'
@@ -12,7 +13,7 @@ import { basename, join, relative } from 'node:path'
 const HUB = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
 const NAME = basename(HUB)
 const DRY = process.argv.includes('--dry-run')
-const NO_SCHEDULE = process.argv.includes('--no-schedule')
+const NO_PASEO = process.argv.includes('--no-paseo')
 const SKILLS = ['intake', 'probe', 'build', 'accept']
 
 const config = JSON.parse(readFileSync(join(HUB, 'factory.json'), 'utf8'))
@@ -50,7 +51,7 @@ console.log(`Setting up ${NAME} in ${HUB}${DRY ? ' (dry run)' : ''}`)
 // 1. the tools: stop with the list of what is missing, and install nothing
 console.log('\nTools')
 const missing = (config.tools ?? []).filter((tool) => {
-  if (tool === 'paseo') return NO_SCHEDULE ? false : !PASEO
+  if (tool === 'paseo') return NO_PASEO ? false : !PASEO
   return !ok(tool, CHECKS[tool] ?? ['--version'])
 })
 if (missing.length) {
@@ -86,24 +87,13 @@ for (const [name, repo] of Object.entries(config.repos ?? {})) {
   else run('sh', ['-c', repo.setup], dir)
 }
 
-// 5. the Paseo project and the schedule that builds the next ready task
+// 5. the Paseo project, so the sessions of the hub's builds show up together
 console.log('\nPaseo')
-if (NO_SCHEDULE || !config.schedule) console.log('  Skipped')
+if (NO_PASEO) console.log('  Skipped')
 else {
   const projects = JSON.parse(read(PASEO, ['project', 'ls', '--json']))
   if (projects.some((project) => project.path === HUB)) console.log('  Project exists')
   else run(PASEO, ['project', 'create', HUB])
-
-  const { every, provider, mode, prompt } = config.schedule
-  const scheduleName = config.schedule.name ?? `${NAME}-build`
-  const schedules = JSON.parse(read(PASEO, ['schedule', 'ls', '--json']))
-  if (schedules.some((schedule) => schedule.name === scheduleName)) console.log(`  Schedule ${scheduleName} exists`)
-  else {
-    const args = ['schedule', 'create', '--every', every, '--name', scheduleName, '--provider', provider, '--cwd', HUB]
-    if (mode) args.push('--mode', mode)
-    run(PASEO, [...args, prompt])
-    console.log(`  Open the schedule ${scheduleName} in Paseo's Schedules view and turn off "Archive on finish", so each run stays for review.`)
-  }
 }
 
 console.log(`\n${NAME} is ready${DRY ? ' (dry run: nothing changed)' : ''}`)

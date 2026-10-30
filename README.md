@@ -31,9 +31,38 @@ The script works out the hub's name and path from its folder, and changes only w
 2. Checks the skills in `.claude/skills/`. They are committed in the hub. A hub that has none yet gets them with `scripts/update-skills.mjs`.
 3. Clones the repositories in `mars.yaml` into `repos/`.
 4. Runs the `setup` command of each repository.
-5. Adds the hub to Paseo as a project, and creates a schedule that builds the next ready change task. Turn off "Archive on finish" for the schedule in Paseo's Schedules view, so each run stays for review. The CLI cannot set it.
+5. Adds the hub to Paseo as a project.
 
-`--dry-run` prints what would change. `--no-schedule` skips Paseo.
+`--dry-run` prints what would change. `--no-paseo` skips Paseo.
+
+## Run builds on a machine
+
+The worker builds the hubs of a fleet on one machine, for example a Mac mini at home. The fleet is a git repository with one file, `hubs.json`: the git URLs of the hubs.
+
+```json
+["git@github.com:you/acme-hub.git"]
+```
+
+Install the worker once on the machine:
+
+```sh
+git clone git@github.com:thetutlage/factories-hub.git ~/.factory/factories-hub
+node ~/.factory/factories-hub/worker/install.mjs --fleet <git url of the fleet>
+```
+
+It needs git, Node, Claude Code and Paseo signed in on the machine. Paseo's desktop app does not need to run: use its daemon, and reach it from your phone or laptop. launchd runs the worker every 2 minutes (`--every <seconds>`). Each poll:
+
+1. Pulls the fleet. A new hub is cloned into `~/factories/` (`--hubs <folder>`) and set up with `scripts/setup.mjs`. A Paseo session says when it is ready.
+2. Fetches each hub, and fast-forwards its checkout. The worker never edits the checkout. When it has local changes, the worker skips the hub and says so once.
+3. Waits while a change task of the hub is `building`, or a build session runs.
+4. Takes the next ready change task, by the rule of the build skill. `build.repos` in `factory.json` limits it to tasks of those repositories.
+5. Claims the task: sets it to `building` and pushes the hub, so another machine does not take it.
+6. Makes the build folder `.factory/builds/<id>`: a worktree of the hub, and a worktree of each repository of the task on `task/<id>`. It copies the files in `repos.<name>.copy` of `factory.json`, such as `.env`, and runs `repos.<name>.setup`.
+7. Starts one Paseo session in the folder with the build skill.
+
+A hub with nothing to build costs a `git fetch` and no session. When a task is `done`, the worker removes its build folder. A claimed task whose session ended without a status change gets one message. Its log is `~/.factory/worker.log`.
+
+`node worker/worker.mjs --dry-run` prints what a poll would do. `node worker/install.mjs --uninstall` removes the launchd job.
 
 ## Update the skills
 
