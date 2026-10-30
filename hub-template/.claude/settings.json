@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(/repos/**)",
+      "Edit(/tasks/**)",
+      "Edit(/explorations/**)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(docker compose *)",
+      "Bash(curl *localhost*)",
+      "Bash(lsof *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(grep *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(sed -n *)",
+      "Bash(gh pr *)",
+      "Bash(gh api repos/*)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git remote*)",
+      "Bash(find * -delete*)",
+      "Bash(find * -exec*)",
+      "Bash(find * -execdir*)",
+      "Bash(find * -ok*)",
+      "Bash(npm publish*)"
+    ]
+  },
+  "worktree": {
+    "bgIsolation": "none"
+  }
+}

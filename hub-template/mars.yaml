@@ -1,0 +1,9 @@
+version: 1
+
+workspace:
+  name: "hub"
+
+repos: []
+
+defaults:
+  branch: main
