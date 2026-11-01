@@ -83,7 +83,7 @@ For an exploration, write these items under `## Evidence`:
 
 ## 7. Finish
 
-1. For a change task, commit the work on the branch, and push the branch. Do not merge.
+1. For a change task, commit the work on the branch, and push the branch: `git -C repos/<name> push origin task/<id>`. Push only `task/<id>` to a repository of the product, never its default branch. Do not merge.
 2. When the branch has no pull request, open one to the default branch. When it has one, update its body (`gh pr edit --body`). The title is the id and the title of the task. The body has the goal, the result of each criterion, the screenshots as links to the hub on GitHub, and the items under `## Context changes` and `## Discovered work` of the task, under the same headings. Do not open it as a draft. Write the URL of each pull request in `pull_requests` of the task.
 3. Commit the task file and the screenshots in the hub. Set the status to `review`.
 

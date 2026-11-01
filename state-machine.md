@@ -34,7 +34,7 @@ This file is the only place for the states of the factory and the rules that mov
 
 ## Each change of status
 
-1. Commit the task file, and push the hub: `git push origin HEAD:main`. When the push is rejected, run `git fetch origin` and `git rebase origin/main`, then push again. Do not push again without the rebase.
+1. Commit the task file, and push the hub. Give the hub's folder, the folder with `tasks/`, to each git command: `git -C <hub folder> push origin HEAD:main`. When the push is rejected, run `git -C <hub folder> fetch origin` and `git -C <hub folder> rebase origin/main`, then push again. Do not push again without the rebase. Never run these commands in a folder of `repos/`: there, `HEAD:main` pushes the branch of the task to `main` of that repository.
 2. When the hub has `scripts/sync-issues.mjs`, run `node scripts/sync-issues.mjs <id>`. The issue gets the label `status: <status>`. It is closed at `done` and `discarded`.
 
 ## The factory identity
@@ -47,6 +47,7 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 - Build opens one pull request in each repository of the task, and writes its URL in `pull_requests` of the task.
 - The body of the pull request has the items under `## Context changes` and `## Discovered work`. A merge accepts the task and these items.
 - In a task with `## Rework`, build makes each change that the section gives, on the same branch and pull request.
+- Build pushes only `task/<id>` to a repository of the product, never its default branch. The default branch changes only when the person merges a pull request.
 - Build does not wait for the checks on GitHub. It runs the checks of the repository, pushes, and sets the status. The watcher script gives each check result to triage.
 
 ## The watcher script
