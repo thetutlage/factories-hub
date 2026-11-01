@@ -35,6 +35,13 @@ try {
 }
 
 function poll() {
+  // the sessions need the Paseo daemon. Quitting the desktop app can stop a daemon that it started, and
+  // `daemon start` does nothing when one runs.
+  if (!DRY) {
+    const daemon = sh(config.paseo, ['daemon', 'start'], HOME, { check: false })
+    if (daemon.out.startsWith('Started')) log(`started the Paseo daemon: ${daemon.out.split('\n')[0]}`)
+  }
+
   // the fleet: a clone that only the worker reads
   const fleetDir = join(HOME, 'fleet')
   if (!existsSync(fleetDir)) git(['clone', '--quiet', config.fleet, fleetDir], HOME)
@@ -42,18 +49,29 @@ function poll() {
   const urls = JSON.parse(readFileSync(join(fleetDir, 'hubs.json'), 'utf8'))
 
   for (const url of urls) {
+    const name = basename(url).replace(/\.git$/, '')
     try {
-      pollHub(url)
+      pollHub(url, name)
+      delete state.hubs[name]?.notified['poll-failed']
     } catch (error) {
       log(`${url}: ${error.message}`)
+      pollFailed(name, error)
     }
   }
 }
 
+// A failed poll is reported once, and again after a poll of the hub works. The report is marked only when
+// it reaches GitHub, so a failure while GitHub cannot be reached is reported on a later poll.
+function pollFailed(name, error) {
+  const hubState = state.hubs[name]
+  if (!hubState || hubState.notified['poll-failed']) return
+  const message = `The poll of \`${name}\` fails, so nothing is built, triaged or accepted. The worker tries again on each poll:\n\n\`\`\`\n${error.message.slice(-1500)}\n\`\`\``
+  if (report(hubState, name, message)) hubState.notified['poll-failed'] = new Date().toISOString()
+}
+
 // ---- a hub ----------------------------------------------------------------------------------------------
 
-function pollHub(url) {
-  const name = basename(url).replace(/\.git$/, '')
+function pollHub(url, name) {
   const hub = join(config.hubsDir, name)
   const hubState = (state.hubs[name] ??= { builds: {}, notified: {} })
 

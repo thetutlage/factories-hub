@@ -64,7 +64,7 @@ mv ~/Downloads/<app>.private-key.pem ~/.factory/github-app.pem && chmod 600 ~/.f
 node ~/.factory/factories-hub/worker/install.mjs --fleet <git url of the fleet> --app-id <id of the App> --app-key ~/.factory/github-app.pem
 ```
 
-It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code and Paseo signed in. Paseo's desktop app does not need to run: use its daemon, and reach it from your phone or laptop. launchd runs the worker every 2 minutes (`--every <seconds>`). Each poll:
+It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code and Paseo signed in. Paseo's desktop app does not need to run: use its daemon, and reach it from your phone or laptop. Each poll starts the daemon when it does not run. launchd runs the worker every 2 minutes (`--every <seconds>`). Each poll:
 
 1. Pulls the fleet. A new hub is cloned into `~/factories/` (`--hubs <folder>`) and set up with `scripts/setup.mjs`. The worker then opens an issue in the fleet repository, `<hub> on <machine>`: the hand-off.
 2. Fetches each hub, and fast-forwards its checkout. The worker never edits the checkout. When it has local changes, the worker skips the hub and reports it once.
@@ -73,7 +73,7 @@ It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code 
 
 `state-machine.md` gives the rules that the watcher and the builder follow. A hub with nothing to do costs a `git fetch`, a look at the pull requests of each task in review, and no session. When a task is `done`, the worker removes its folders.
 
-The worker reports to the hub's issue in the fleet repository, once for each problem: a failed setup, a checkout with local changes, a build that could not start, a claimed task whose session ended without a status change, an accept session that ended without `done`, and a pull request closed with no merge. Triage reports a fault outside a task there too. A report comments on the issue and reopens it. Close the issue when the problem is handled. The log is `~/.factory/worker.log`.
+The worker reports to the hub's issue in the fleet repository, once for each problem: a poll that fails, a failed setup, a checkout with local changes, a build that could not start, a claimed task whose session ended without a status change, an accept session that ended without `done`, and a pull request closed with no merge. Triage reports a fault outside a task there too. A report comments on the issue and reopens it. Close the issue when the problem is handled. The log is `~/.factory/worker.log`.
 
 `node worker/worker.mjs --dry-run` prints what a poll would do. `node worker/install.mjs --uninstall` removes the launchd job.
 
