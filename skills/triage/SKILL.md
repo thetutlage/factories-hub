@@ -44,7 +44,7 @@ When the changes give two or more ways out, do each of them.
 - **Answer:** reply in the thread of the comment. For a review comment, use `gh api repos/<owner>/<repo>/pulls/<number>/comments/<comment id>/replies -f body='<reply>'`. For a comment on the conversation, use `gh pr comment <url> --body '<reply>'`.
 - **New work:** reply that it is new work. Write it under `## Discovered work` of the task.
 - **A decision of the person:** ask the question on the pull request. Write it under `## Questions` of the task. Set the status to `blocked`. When there is also rework, write `## Rework` too. The build does it after probe settles the question.
-- **A fault outside the task:** comment on the issue that the request gives: what failed, and the cause.
+- **A fault outside the task:** open a new issue with the command that the request gives: what failed, and the cause. Open one issue for each fault, and do not comment on an earlier issue.
 - **Nothing to do:** nothing.
 
 Send each command on its own, with no shell function or loop, so that the permission rules match it. Do not change the code. Do not push a branch.

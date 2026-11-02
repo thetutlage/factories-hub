@@ -73,7 +73,7 @@ For a change task, write these items under `## Evidence`:
 - The changes, in a maximum of five lines.
 - Each acceptance criterion, with the check that proves it, and the result.
 - Each decision that you made about the code, with its reason.
-- When the change shows something to a person, a screenshot of each page and each state that changed. Take them with a headless browser. Save them in the hub in `tasks/T-<id>/`, and give the path of each one.
+- When the change shows something to a person, a screenshot of each page and each state that changed. Take them with a headless browser. Save them in the hub in `tasks/T-<id>/`, and show each one as an image (step 7).
 
 For an exploration, write these items under `## Evidence`:
 
@@ -84,8 +84,11 @@ For an exploration, write these items under `## Evidence`:
 ## 7. Finish
 
 1. For a change task, commit the work on the branch, and push the branch: `git -C repos/<name> push origin task/<id>`. Push only `task/<id>` to a repository of the product, never its default branch. Do not merge.
-2. When the branch has no pull request, open one to the default branch. When it has one, update its body (`gh pr edit --body`). The title is the id and the title of the task. The body has the goal, the result of each criterion, the screenshots as links to the hub on GitHub, and the items under `## Context changes` and `## Discovered work` of the task, under the same headings. Do not open it as a draft. Write the URL of each pull request in `pull_requests` of the task.
-3. Commit the task file and the screenshots in the hub. Set the status to `review`.
+2. When the task has screenshots, commit them in the hub, and push the hub as the state machine gives for a change of status. The commit of the push is the `<commit>` of their images.
+3. When the branch has no pull request, open one to the default branch. When it has one, update its body (`gh pr edit --body`). The title is the id and the title of the task. The body has the goal, the result of each criterion, the screenshots, and the items under `## Context changes` and `## Discovered work` of the task, under the same headings. Do not open it as a draft. Write the URL of each pull request in `pull_requests` of the task.
+   - Show each screenshot as an image, so that the person sees it in the pull request: `![<page and state>](https://github.com/<owner>/<hub>/raw/<commit>/tasks/T-<id>/<file>)`. `<owner>/<hub>` is the GitHub repository of the hub (`git -C <hub folder> remote get-url origin`). A link to a file is not enough.
+   - Put a line above each image that names the page, the state and the width.
+4. Commit the task file in the hub. Set the status to `review`.
 
 ## Hand back
 

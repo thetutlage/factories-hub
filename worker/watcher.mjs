@@ -6,7 +6,7 @@
 // not a change, so the replies and comments of its own sessions do not start a triage.
 import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { DRY, FACTORY_LOGIN, changeStatus, git, hubWorktree, log, removeFolder, reportIssue, reportOnce, repoSlugs, sh, startSession } from './lib.mjs'
+import { DRY, FACTORY_LOGIN, changeStatus, git, hubWorktree, log, removeFolder, reportOnce, reportTarget, repoSlugs, sh, startSession } from './lib.mjs'
 
 const QUIET_MS = 5 * 60 * 1000
 const FAILED = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE', 'NEUTRAL', 'ERROR'])
@@ -88,12 +88,14 @@ function triage({ name, hub, hubState, branch, running }, task, prs) {
   log(`${name}: triage of ${task.id} for ${changes.length} changes`)
   if (DRY) return log(`would start triage of ${task.id}:\n${changes.map((change) => `  - ${change}`).join('\n')}`)
   hubWorktree(hub, folder, branch)
-  const issue = reportIssue(hubState)
+  const target = reportTarget(name)
   const prompt = [
     `Use the triage skill for ${task.id}. Its pull requests: ${prs.map((pr) => pr.url).join(', ')}.`,
     'The changes since the last triage:',
     ...changes.map((change) => `- ${change}`),
-    issue ? `Report a fault outside the task on ${issue}.` : '',
+    target
+      ? `Report a fault outside the task as a new issue: gh issue create --repo ${target.repo} --title '${target.titlePrefix}${task.id}: <the fault in a few words>' --body '<what failed, and the cause>'.`
+      : '',
   ].filter(Boolean).join('\n')
   watch.agent = startSession(folder, `${name} triage ${task.id}`, prompt)
   watch.triaged = key

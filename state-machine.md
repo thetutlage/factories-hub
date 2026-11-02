@@ -55,7 +55,7 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 The watcher script looks at the pull requests of each task in `review`.
 
 - When each pull request is merged, it sets the task to `accepting`, and starts accept. Accept promotes the items in the body of the pull request, and sets the task to `done`.
-- When a pull request is closed with no merge, it sets the task to `draft`, and reports it on the issue of the hub in the fleet repository.
+- When a pull request is closed with no merge, it sets the task to `draft`, and reports it in a new issue in the fleet repository.
 - When a pull request has a change since the last triage, it starts triage on the pull request. A change is a new review, a new comment, a new commit, a new result of a check, or a merge conflict. A submitted review starts triage at the next poll. Each other change starts it when it is 5 minutes old, so that a person can write several comments.
 
 ## Triage
@@ -68,7 +68,7 @@ Triage reads the pull request and its task, and chooses one way out. Then it act
 | Answer | Replies on the pull request. The task stays in `review`. |
 | New work | Replies on the pull request. Writes the work under `## Discovered work` of the task. The task stays in `review`. |
 | A decision of the person | Asks on the pull request, and writes the question under `## Questions`. Sets the task to `blocked`. |
-| A fault outside the task, for example a review that cannot run | Reports it on the issue of the hub in the fleet repository. The task stays in `review`. |
+| A fault outside the task, for example a review that cannot run | Reports it in a new issue in the fleet repository. The task stays in `review`. |
 | Nothing to do | Nothing. |
 
 Each triage ends with one comment on the pull request. It gives the way out and the reason.

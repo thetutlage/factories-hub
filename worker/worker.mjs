@@ -66,7 +66,7 @@ function pollFailed(name, error) {
   const hubState = state.hubs[name]
   if (!hubState || hubState.notified['poll-failed']) return
   const message = `The poll of \`${name}\` fails, so nothing is built, triaged or accepted. The worker tries again on each poll:\n\n\`\`\`\n${error.message.slice(-1500)}\n\`\`\``
-  if (report(hubState, name, message)) hubState.notified['poll-failed'] = new Date().toISOString()
+  if (report(name, message)) hubState.notified['poll-failed'] = new Date().toISOString()
 }
 
 // ---- a hub ----------------------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ function pollHub(url, name) {
   }
   // the hand-off, tried again on the next poll when GitHub cannot be reached
   if (!hubState.readyReported) {
-    hubState.readyReported = report(hubState, name, `**Ready.** \`${name}\` is set up on \`${HOST}\` in \`${hub}\`. The worker builds its ready change tasks from now on.`, { problem: false })
+    hubState.readyReported = report(name, `**Ready.** \`${name}\` is set up on \`${HOST}\` in \`${hub}\`. The worker builds its ready change tasks from now on.`, { problem: false })
   }
 
   // the main checkout follows origin and is never edited

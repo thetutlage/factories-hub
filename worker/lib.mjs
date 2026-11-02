@@ -169,33 +169,34 @@ export function startSession(folder, title, prompt) {
 
 // ---- reports --------------------------------------------------------------------------------------------
 
-// One issue in the fleet repository for each hub on each machine. The worker opens it with the first
-// report, and comments on it after that. A problem reopens it; a person closes it when it is handled.
-// A report that cannot reach GitHub stays in the log, returns false, and does not stop the poll.
-export function report(hubState, name, message, { problem = true } = {}) {
-  log(`${name}: ${message.split('\n')[0]}`)
+// Each report opens its own issue in the fleet repository, titled with the hub, the machine and the first
+// line of the report. A person closes a problem when it is handled; a report that is no problem is closed
+// at once. A report that cannot reach GitHub stays in the log, returns false, and does not stop the poll.
+export function report(name, message, { problem = true } = {}) {
+  const firstLine = message.split('\n')[0]
+  log(`${name}: ${firstLine}`)
   if (DRY) return false
   if (!FLEET_REPO) return true
   const gh = (args) => sh('gh', [...args, '--repo', FLEET_REPO], HOME, { check: false })
-  if (!hubState.issue) {
-    const created = gh(['issue', 'create', '--title', `${name} on ${HOST}`, '--body', message])
-    if (!created.ok) return log(`${name}: the report did not reach GitHub: ${created.err || created.out}`) ?? false
-    hubState.issue = Number(created.out.match(/\/issues\/(\d+)/)?.[1])
-    return true
-  }
-  const commented = gh(['issue', 'comment', String(hubState.issue), '--body', message])
-  if (!commented.ok) return log(`${name}: the report did not reach GitHub: ${commented.err || commented.out}`) ?? false
-  if (problem) gh(['issue', 'reopen', String(hubState.issue)])
+  const created = gh(['issue', 'create', '--title', reportTitle(name, firstLine), '--body', message])
+  if (!created.ok) return log(`${name}: the report did not reach GitHub: ${created.err || created.out}`) ?? false
+  if (!problem) gh(['issue', 'close', created.out.trim()])
   return true
 }
 
 export function reportOnce(hubState, key, name, message) {
   if (hubState.notified[key]) return
   hubState.notified[key] = new Date().toISOString()
-  report(hubState, name, message)
+  report(name, message)
 }
 
-// the issue of the hub in the fleet repository, for a session that reports a fault
-export function reportIssue(hubState) {
-  return FLEET_REPO && hubState.issue ? `https://github.com/${FLEET_REPO}/issues/${hubState.issue}` : null
+// `<hub> on <machine>: <text>`, with the Markdown marks of the text removed, and at most 100 characters of it
+export function reportTitle(name, text) {
+  const plain = text.replace(/[*`]/g, '')
+  return `${name} on ${HOST}: ${plain.length > 100 ? `${plain.slice(0, 99)}…` : plain}`
+}
+
+// where a session opens an issue for a fault outside its task, or null for a fleet that is not on GitHub
+export function reportTarget(name) {
+  return FLEET_REPO ? { repo: FLEET_REPO, titlePrefix: reportTitle(name, '') } : null
 }
