@@ -51,7 +51,7 @@ function build(name, hub, hubState, task, branch) {
   // after the claim, a failure leaves the task "building" with no session, so it is reported
   try {
     prepare(name, hub, task, folder)
-    const agent = startSession(folder, `${name} ${task.id}`, `Use the build skill to build ${task.id}. The worker claimed it for this run, so its status is building.`)
+    const agent = startSession(folder, `${name} ${task.id}`, `Use the build skill to build ${task.id}. The worker claimed it for this run, so its status is building.`, task)
     hubState.builds[task.id] = { agent, folder, started: new Date().toISOString() }
     log(`${name}: started ${task.id} in session ${agent}`)
   } catch (error) {

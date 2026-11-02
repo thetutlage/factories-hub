@@ -64,7 +64,7 @@ function startAccept({ name, hub, hubState, branch }, task, prs) {
   const folder = join(hub, '.factory/accepts', task.id)
   if (DRY) return log(`would accept ${task.id}: ${prs.map((pr) => pr.url).join(', ')}`)
   hubWorktree(hub, folder, branch)
-  const agent = startSession(folder, `${name} accept ${task.id}`, `Use the accept skill for ${task.id}. The person merged each of its pull requests: ${prs.map((pr) => pr.url).join(', ')}. Its status is accepting.`)
+  const agent = startSession(folder, `${name} accept ${task.id}`, `Use the accept skill for ${task.id}. The person merged each of its pull requests: ${prs.map((pr) => pr.url).join(', ')}. Its status is accepting.`, task)
   hubState.accepts[task.id] = { agent, folder, started: new Date().toISOString() }
   log(`${name}: ${task.id} is merged, started its accept in session ${agent}`)
 }
@@ -98,7 +98,7 @@ function triage({ name, hub, hubState, branch, running }, task, prs) {
       : '',
   ].filter(Boolean).join('\n')
   watch.triagedAt = new Date().toISOString()
-  watch.agent = startSession(folder, `${name} triage ${task.id}`, prompt)
+  watch.agent = startSession(folder, `${name} triage ${task.id}`, prompt, task)
   watch.triaged = key
   delete watch.pending
   log(`${name}: started the triage of ${task.id} in session ${watch.agent}`)

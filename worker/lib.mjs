@@ -70,6 +70,8 @@ export function readTasks(hub) {
         repos: list(meta.repos),
         deps: list(meta.depends_on),
         prs: list(meta.pull_requests),
+        // the provider of its sessions, or null for the one of factory.json
+        provider: meta.provider || null,
         rework: /^## Rework$/m.test(src),
         number: Number(meta.id?.slice(2)),
       }
@@ -149,20 +151,23 @@ export function sessions() {
   return (id) => agents.some((agent) => id && agent.id.startsWith(id) && agent.status === 'running')
 }
 
-// a Paseo session in a folder of the hub, in the mode of factory.json: nobody answers its prompts.
+// a Paseo session in a folder of the hub, for a task: its provider is the task's `provider`, else the one of
+// factory.json, and its mode is the one `build.modes` gives that provider, so nobody answers its prompts.
 // With no thinking option, Paseo passes none, and the effort comes from the settings of the person.
-export function startSession(folder, title, prompt) {
-  if (DRY) return log(`would start the session "${title}" in ${folder}`)
+export function startSession(folder, title, prompt, task) {
   const factory = factoryOf(folder)
   const thinking = factory.build?.thinking
-  const provider = factory.build?.provider ?? 'claude'
-  if (provider.split('/')[0] === 'codex') linkForCodex(folder)
+  const provider = task?.provider ?? factory.build?.provider ?? 'claude'
+  const name = provider.split('/')[0]
+  const mode = factory.build?.modes?.[name] ?? factory.build?.mode ?? 'auto'
+  if (DRY) return log(`would start the session "${title}" in ${folder} with ${provider} in ${mode}`)
+  if (name === 'codex') linkForCodex(folder)
   return paseo([
     'run', '--no-wait', '--quiet',
     ...Object.entries(SESSION_ENV).flatMap(([key, value]) => ['--env', `${key}=${value}`]),
     '--cwd', folder,
     '--provider', provider,
-    '--mode', factory.build?.mode ?? 'auto',
+    '--mode', mode,
     ...(thinking ? ['--thinking', thinking] : []),
     '--title', title,
     prompt,
