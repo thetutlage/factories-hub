@@ -75,7 +75,7 @@ function triage({ name, hub, hubState, branch, running }, task, prs) {
   const watch = (hubState.watch[task.id] ??= {})
   if (watch.agent && running(watch.agent)) return
 
-  const { key, changes, reviewed } = fingerprint(hub, task, prs)
+  const { key, changes, reviewed } = fingerprint(hub, task, prs, watch.triagedAt)
   if (!changes.length || key === watch.triaged) return delete watch.pending
   // a submitted review is a finished batch. Other changes must stay the same for 5 minutes, so a person
   // who writes several comments is not cut off.
@@ -97,6 +97,7 @@ function triage({ name, hub, hubState, branch, running }, task, prs) {
       ? `Report a fault outside the task as a new issue: gh issue create --repo ${target.repo} --title '${target.titlePrefix}${task.id}: <the fault in a few words>' --body '<what failed, and the cause>'.`
       : '',
   ].filter(Boolean).join('\n')
+  watch.triagedAt = new Date().toISOString()
   watch.agent = startSession(folder, `${name} triage ${task.id}`, prompt)
   watch.triaged = key
   delete watch.pending
@@ -112,11 +113,13 @@ const PR_QUERY = `query($owner: String!, $repo: String!, $number: Int!) { reposi
     statusCheckRollup { contexts(first: 100) { nodes { __typename ... on CheckRun { name conclusion detailsUrl } ... on StatusContext { context state targetUrl } } } } } } }
 } } }`
 
-// What changed on the pull requests since the task was set to review, without the factory's own activity:
-// reviews, comments, a commit of a person, failed checks of the head commit, and a merge conflict. The key
-// is the same while nothing new comes.
-export function fingerprint(hub, task, prs) {
-  const since = Date.parse(git(['log', '-1', '--format=%cI', '-G', '^status: review$', '--', join('tasks', task.file)], hub).out) || 0
+// What changed on the pull requests since the last triage started, without the factory's own activity:
+// reviews, comments, a commit of a person, failed checks of the head commit, and a merge conflict. A person
+// can comment while a rework waits or builds, so the time is the start of the last triage, not the last
+// change to `review`. With no triage yet, it is the last change to `review`. The key is the same while
+// nothing new comes.
+export function fingerprint(hub, task, prs, triagedAt) {
+  const since = Date.parse(triagedAt) || Date.parse(git(['log', '-1', '--format=%cI', '-G', '^status: review$', '--', join('tasks', task.file)], hub).out) || 0
   const isPerson = (author) => author && author.login.replace(/\[bot\]$/, '') !== FACTORY_LOGIN
   const ids = []
   const changes = []
