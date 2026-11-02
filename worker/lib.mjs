@@ -2,9 +2,9 @@
 // hub, changes of status, Paseo sessions and the reports to the fleet repository. state-machine.md gives
 // the rules that these scripts follow.
 import { spawnSync } from 'node:child_process'
-import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { hostname, homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { env as githubEnv } from './github.mjs'
 
 export const HOME = process.env.FACTORY_HOME ?? join(homedir(), '.factory')
@@ -155,16 +155,33 @@ export function startSession(folder, title, prompt) {
   if (DRY) return log(`would start the session "${title}" in ${folder}`)
   const factory = factoryOf(folder)
   const thinking = factory.build?.thinking
+  const provider = factory.build?.provider ?? 'claude'
+  if (provider.split('/')[0] === 'codex') linkForCodex(folder)
   return paseo([
     'run', '--no-wait', '--quiet',
     ...Object.entries(SESSION_ENV).flatMap(([key, value]) => ['--env', `${key}=${value}`]),
     '--cwd', folder,
-    '--provider', factory.build?.provider ?? 'claude',
+    '--provider', provider,
     '--mode', factory.build?.mode ?? 'auto',
     ...(thinking ? ['--thinking', thinking] : []),
     '--title', title,
     prompt,
   ]).out
+}
+
+// Codex reads AGENTS.md, not CLAUDE.md, and loads skills from .agents/skills, not .claude/skills, so a
+// Codex session gets links to both. The links of skills inside .claude/skills work through the link of
+// the folder. Git ignores the links.
+function linkForCodex(folder) {
+  const exclude = resolve(folder, git(['rev-parse', '--git-path', 'info/exclude'], folder).out)
+  const excluded = existsSync(exclude) ? readFileSync(exclude, 'utf8').split('\n') : []
+  mkdirSync(dirname(exclude), { recursive: true })
+  for (const [link, target] of [['AGENTS.md', 'CLAUDE.md'], ['.agents/skills', '.claude/skills']]) {
+    if (!existsSync(join(folder, target)) || existsSync(join(folder, link))) continue
+    mkdirSync(dirname(join(folder, link)), { recursive: true })
+    symlinkSync(join(folder, target), join(folder, link))
+    if (!excluded.includes(`/${link}`)) appendFileSync(exclude, `/${link}\n`)
+  }
 }
 
 // ---- reports --------------------------------------------------------------------------------------------
