@@ -149,16 +149,19 @@ export function sessions() {
   return (id) => agents.some((agent) => id && agent.id.startsWith(id) && agent.status === 'running')
 }
 
-// a Paseo session in a folder of the hub, in the mode of factory.json: nobody answers its prompts
+// a Paseo session in a folder of the hub, in the mode of factory.json: nobody answers its prompts.
+// With no thinking option, Paseo passes none, and the effort comes from the settings of the person.
 export function startSession(folder, title, prompt) {
   if (DRY) return log(`would start the session "${title}" in ${folder}`)
   const factory = factoryOf(folder)
+  const thinking = factory.build?.thinking
   return paseo([
     'run', '--no-wait', '--quiet',
     ...Object.entries(SESSION_ENV).flatMap(([key, value]) => ['--env', `${key}=${value}`]),
     '--cwd', folder,
     '--provider', factory.build?.provider ?? 'claude',
     '--mode', factory.build?.mode ?? 'auto',
+    ...(thinking ? ['--thinking', thinking] : []),
     '--title', title,
     prompt,
   ]).out
