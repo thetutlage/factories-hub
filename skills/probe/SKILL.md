@@ -28,6 +28,8 @@ Read the task, and the code and the systems that it uses. Find each thing that t
 
 When a build or triage set the task to `blocked`, start from its questions under `## Questions`.
 
+**The agent of the build.** Before the task is ready, ask the person which agent builds it, as the last question. The default is `build.provider` of `factory.json`. Another agent is a provider that `build.modes` names, with a model, for example `codex/gpt-6.1-sol`. Recommend the default, unless the person said which agent builds this kind of task. Write the answer in `provider:` of the task. Leave `provider:` empty for the default.
+
 The task is ready when nothing is unsettled. Set the status to `ready`.
 
 ## Hand back
