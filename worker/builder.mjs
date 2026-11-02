@@ -1,8 +1,8 @@
 // The builder: takes the next `ready` change task of a hub by the rule of "Build" in state-machine.md,
 // claims it on GitHub, prepares a build folder of worktrees, and starts one Paseo session in it with the
 // build skill. One build at a time in each hub.
-import { cpSync, existsSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, symlinkSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import { DRY, HOST, factoryOf, git, hubWorktree, log, removeFolder, reportOnce, setStatus, sh, startSession } from './lib.mjs'
 
 export function builder({ name, hub, hubState, tasks, branch, running }) {
@@ -84,6 +84,32 @@ function prepare(name, hub, task, folder) {
       const result = sh('sh', ['-c', setup], tree, { check: false })
       if (!result.ok) log(`${name}: setup of ${repo} for ${task.id} failed, the build continues:\n${result.err || result.out}`)
     }
+    linkSkills(name, folder, repo, tree)
+  }
+}
+
+// The session starts in the build folder, and Claude Code loads skills only from the folder a session
+// starts in, so the skills of a repository (its own, or ones its setup installs) are linked into the
+// build folder's .claude/skills. A skill of the hub keeps its name; git ignores the links.
+function linkSkills(name, folder, repo, tree) {
+  const from = join(tree, '.claude/skills')
+  if (!existsSync(from)) return
+  const to = join(folder, '.claude/skills')
+  const exclude = resolve(folder, git(['rev-parse', '--git-path', 'info/exclude'], folder).out)
+  const excluded = existsSync(exclude) ? readFileSync(exclude, 'utf8').split('\n') : []
+  mkdirSync(to, { recursive: true })
+  mkdirSync(dirname(exclude), { recursive: true })
+  for (const skill of readdirSync(from)) {
+    if (!existsSync(join(from, skill, 'SKILL.md'))) continue
+    const link = join(to, skill)
+    // a rework build of the task finds the links of its first build
+    if (existsSync(link) && lstatSync(link).isSymbolicLink() && readlinkSync(link) === join(from, skill)) continue
+    if (existsSync(link)) {
+      log(`${name}: the skill ${skill} of ${repo} has the name of a skill in the build folder, and is not linked`)
+      continue
+    }
+    symlinkSync(join(from, skill), link)
+    if (!excluded.includes(`/.claude/skills/${skill}`)) appendFileSync(exclude, `/.claude/skills/${skill}\n`)
   }
 }
 
