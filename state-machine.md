@@ -49,6 +49,7 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 - In a task with `## Rework`, build makes each change that the section gives, on the same branch and pull request.
 - Build pushes only `task/<id>` to a repository of the product, never its default branch. The default branch changes only when the person merges a pull request.
 - Build does not wait for the checks on GitHub. It runs the checks of the repository, pushes, and sets the status. The watcher script gives each check result to triage.
+- When a build session ends with the task still `building` in the hub, the worker looks at the hub commits of the build folder that are not on the default branch. When each of them changes only the task's file or its screenshots, and sets a status other than `building`, the worker pushes them and syncs the issue. A session that may not push the default branch, such as Codex in `auto-review`, ends this way. Anything else is reported, and the person decides.
 
 ## The watcher script
 

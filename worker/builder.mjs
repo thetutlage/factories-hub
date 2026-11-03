@@ -14,6 +14,8 @@ export function builder({ name, hub, hubState, tasks, branch, running }) {
     const build = hubState.builds[claimed.id]
     // a build that never started was reported when it failed
     if (build?.agent && !running(build.agent)) {
+      // a session that could not push its hand-back (Codex in auto-review may not push the default branch)
+      if (handBack(name, claimed, build, branch)) return
       reportOnce(hubState, `stale-${claimed.id}`, name, `${claimed.id} is still \`building\`, but its session has ended. Look at the session in Paseo, then set the task's status.`)
     }
     return
@@ -22,6 +24,38 @@ export function builder({ name, hub, hubState, tasks, branch, running }) {
 
   const task = nextTask(hub, tasks)
   if (task) build(name, hub, hubState, task, branch)
+}
+
+// Pushes the hand-back of a build whose session ended before it could push to the hub: the hub commits of
+// the build folder that are not on the default branch, when each of them changes only the task's own file
+// or its screenshots (tasks/<id>/), and the task's status in them is no longer `building`. Anything else
+// is left for the person. The repositories of the task under repos/ are never touched. Returns whether it
+// pushed.
+function handBack(name, task, build, branch) {
+  const folder = build.folder
+  if (!folder || !existsSync(folder)) return false
+  git(['fetch', '--quiet', 'origin'], folder, { check: false })
+  const ahead = git(['rev-list', '--count', `${branch}..HEAD`], folder, { check: false })
+  if (!ahead.ok || Number(ahead.out) === 0) return false
+  const changed = git(['diff', '--name-only', `${branch}...HEAD`], folder).out.split('\n').filter(Boolean)
+  const own = (file) => file === `tasks/${task.file}` || file.startsWith(`tasks/${task.id}/`)
+  if (!changed.length || !changed.every(own)) return false
+  const status = git(['show', `HEAD:tasks/${task.file}`], folder, { check: false }).out.match(/^status:\s*(\S+)/m)?.[1]
+  if (!status || status === 'building') return false
+
+  log(`${name}: ${task.id}'s session ended before it pushed its hand-back (${status}); pushing it`)
+  if (DRY) return true
+  const rebase = git(['-c', 'commit.gpgsign=false', 'rebase', '--quiet', branch], folder, { check: false })
+  if (!rebase.ok) {
+    git(['rebase', '--abort'], folder, { check: false })
+    return false
+  }
+  if (!git(['push', '--quiet', 'origin', `HEAD:${branch.replace(/^origin\//, '')}`], folder, { check: false }).ok) return false
+  if (existsSync(join(folder, 'scripts/sync-issues.mjs'))) {
+    const sync = sh('node', ['scripts/sync-issues.mjs', task.id], folder, { check: false })
+    if (!sync.ok) log(`${name}: ${task.id}: the issue sync failed: ${sync.err || sync.out}`)
+  }
+  return true
 }
 
 // rework first, then the lowest number; each dependency done, and only the repositories of build.repos
