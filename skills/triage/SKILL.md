@@ -55,6 +55,8 @@ When you changed the task and the status stays `review`, commit the task, and pu
 
 Write one comment on each pull request: `**Triage**: <the way out>. <the reason, in one or two sentences>.`
 
+For a rework and for a decision of the person, end the comment with: `The pull request is a draft until the build hands it back. Do not merge it before then.` The worker makes it a draft at its next poll.
+
 ## Hand back
 
 One line: the id, the way out, and the status.

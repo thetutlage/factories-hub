@@ -58,6 +58,10 @@ The watcher script looks at the pull requests of each task in `review`.
 - When a pull request is closed with no merge, it sets the task to `draft`, and reports it in a new issue in the fleet repository.
 - When a pull request has a change since the last triage, it starts triage on the pull request. A change is a new review, a new comment, a new commit, a new result of a check, or a merge conflict. A change that a person makes while the task is `ready` or `building` counts at the next triage. A submitted review starts triage at the next poll. Each other change starts it when it is 5 minutes old, so that a person can write several comments.
 
+## Drafts
+
+The worker keeps the draft state of each open pull request of a task in step with the status of the task, at each poll. While the task is `ready`, `building` or `blocked`, its pull requests are drafts, so GitHub turns off the merge button while the factory reworks the task or waits on the person. While the task is in `review`, they are ready for review. A pull request that becomes a draft or ready is not a change for the watcher script.
+
 ## Triage
 
 Triage reads the pull request and its task, and chooses one way out. Then it acts.
@@ -71,7 +75,7 @@ Triage reads the pull request and its task, and chooses one way out. Then it act
 | A fault outside the task, for example a review that cannot run | Reports it in a new issue in the fleet repository. The task stays in `review`. |
 | Nothing to do | Nothing. |
 
-Each triage ends with one comment on the pull request. It gives the way out and the reason.
+Each triage ends with one comment on the pull request. It gives the way out and the reason. For a rework and for a decision of the person, the comment also says that the pull request is a draft until the build hands it back.
 
 ## Exploration
 

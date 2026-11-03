@@ -1,6 +1,7 @@
 // The factory worker: one poll of the fleet. launchd runs it every few minutes (see install.mjs).
 // For each hub in the fleet's hubs.json, it clones and sets up the hub once, then runs the watcher, which
-// moves the tasks in review (watcher.mjs), and the builder, which builds the next ready task (builder.mjs).
+// moves the tasks in review (watcher.mjs), the builder, which builds the next ready task (builder.mjs), and
+// keeps each pull request a draft while its task is reworked (drafts.mjs).
 // state-machine.md gives the rules of both. A hub with nothing to do costs a `git fetch`, a look at the
 // pull requests of each task in review, and no session.
 //
@@ -12,6 +13,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { builder } from './builder.mjs'
+import { drafts } from './drafts.mjs'
 import { DRY, HOME, HOST, act, config, git, log, readTasks, report, reportOnce, saveState, sessions, sh, state } from './lib.mjs'
 import { watcher } from './watcher.mjs'
 
@@ -107,4 +109,6 @@ function pollHub(url, name) {
   const context = { name, hub, hubState, tasks: readTasks(hub), branch, running: sessions() }
   watcher(context)
   builder(context)
+  // after both, so the draft state follows the statuses they set in this poll
+  drafts({ ...context, tasks: readTasks(hub) })
 }
