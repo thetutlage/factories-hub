@@ -63,7 +63,7 @@ When the person says that the work is not for now, add one line to `inbox.md`, a
 
 Copy `references/change.md` to `tasks/T-<number>-<slug>.md`. Use the next free number.
 
-1. Write the goal in plain words. Write each acceptance criterion as one check.
+1. Write the goal in plain words. Write each acceptance criterion as one result that a person can check. For how a page looks, point to the design. Do not write a size, a colour, a spacing or a position.
 2. For a fault, write the expected behavior, the actual behavior and the steps that cause the fault.
 3. Write each open question under `## Questions`.
 4. In `repos`, give the name of each repository that the task changes.

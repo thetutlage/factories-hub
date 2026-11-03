@@ -15,6 +15,8 @@ Read the task in `tasks/` that the request names. When the request names no task
 
 Read the task, and the code and the systems that it uses. Find each thing that the task leaves unsettled, and settle it. Do not assume.
 
+- A criterion about how a page looks points to the design. When it gives a size, a colour, a spacing or a position, change it to point to the design.
+
 - When the code or the docs settle it, read them. Do not ask the person.
 - Ask the person about the rest in one group. Give each question a number and your recommended answer:
 

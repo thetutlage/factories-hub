@@ -37,7 +37,7 @@ Read these files:
 
 1. In each repository in `repos`, work on the branch `task/<id>`. When it is checked out, use it. Otherwise run `git fetch origin`, then check out `task/<id>` when it exists from an earlier run, or make it from `origin/<default branch>`.
 2. Make the change that the task gives. Do only that change.
-3. Write an automated check for each acceptance criterion. Use the test tools of the repository.
+3. Write an automated test for each acceptance criterion that describes a behaviour. Use the test tools of the repository. Do not write a test for how a page looks, for a static page or for a config file. Prove those criteria with a screenshot, the output of a command or the changed file.
 4. When you see other work that is necessary, write it under `## Discovered work`. Do not do it.
 5. In a task with `## Rework`, make each change that the section gives, on the same branch. After the push in step 7, reply on each comment that an item links, with what changed. Send each reply as its own command, with no shell function or loop, so that the permission rules match it: `gh api repos/<owner>/<repo>/pulls/<number>/comments/<comment id>/replies -f body='<reply>'` for a review comment, and `gh pr comment <url> --body '<reply>'` for a comment on the conversation. Then write each item under `## Evidence` with what changed, and remove `## Rework`.
 
@@ -71,7 +71,7 @@ For a change task, write these items under `## Evidence`:
 
 - The branch and the pull request in each repository.
 - The changes, in a maximum of five lines.
-- Each acceptance criterion, with the check that proves it, and the result.
+- Each acceptance criterion, with its proof (a test, a screenshot, an output or a file), and the result.
 - Each decision that you made about the code, with its reason.
 - When the change shows something to a person, a screenshot of each page and each state that changed. Take them with a headless browser. Save them in the hub in `tasks/T-<id>/`, and show each one as an image (step 7).
 
