@@ -25,10 +25,12 @@ Read the file names in `context/decisions/`, `context/rules/`, `tasks/` and `exp
 
 When the input is the id of an exploration, go to [From an exploration](#from-an-exploration).
 
+When the input is an item of `inbox.md`, find its line by its text, not by its number. The line leaves the inbox when the item becomes work or is dropped. See [The inbox line](#the-inbox-line).
+
 1. Write the input again in one or two sentences. Ask the person if it is correct.
-2. When a change task or an exploration for the same work exists and is not `done`, tell the person its id, and stop.
+2. When a change task or an exploration for the same work exists and is not `done`, tell the person its id. For an item of the inbox, ask the person if that work covers the item, and remove the line when it does. Stop.
 3. When the input is against the positioning or a non-goal, tell the person which line it is against. Ask the person to choose:
-   - Drop the input. Stop.
+   - Drop the input. For an item of the inbox, remove the line. Stop.
    - Make an exception for this input only. Write the line and the reason under `## Questions` of the task, as a question with its answer. Continue.
    - Change the line. Write the change under `## Context changes`. Tell the person about each task that is not `done` and that is against the new text. Continue.
 4. When the input only changes the positioning or a non-goal, and gives no other work, tell the person to change `context/` directly. Stop.
@@ -55,7 +57,7 @@ Do not look for each edge case. `probe` does that later.
 
 ## 4. Not now
 
-When the person says that the work is not for now, add one line to `inbox.md`, and stop.
+When the person says that the work is not for now, add one line to `inbox.md`, and stop. For an item of the inbox, keep its line as it is. Do not add a second line.
 
 ## 5. Write the work
 
@@ -81,6 +83,12 @@ Make the folder `explorations/E-<number>-<slug>/`. Use the next free number. Cop
 
 When the person gives a milestone, write it in `milestone`.
 
+### The inbox line
+
+When the input is an item of `inbox.md`, remove its line when you write the work. Commit the change of `inbox.md` with the work, in the same commit. When the item gives more work than you wrote, keep the line, and change it to the work that is left.
+
+When the line leaves the inbox with no new work (step 2), commit the change of `inbox.md` alone, and push the hub as the state machine gives.
+
 ## From an exploration
 
 1. Read `exploration.md` of the exploration. Its status must be `done`. If it is not, say the status, and stop.
@@ -92,5 +100,6 @@ When the person gives a milestone, write it in `milestone`.
 ## Hand back
 
 - Each change task and exploration that you wrote, with its status.
+- For an item of the inbox: if its line was removed or kept.
 - The questions that are still open.
 - The next skill: `probe` for a change task, `build` for an exploration.
