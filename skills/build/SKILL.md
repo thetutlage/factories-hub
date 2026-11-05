@@ -22,6 +22,8 @@ Set the status to `building`.
 
 ## 2. Read
 
+In a change task with a pull request, run triage first (see "Triage"). It can add items to `## Rework`.
+
 Read these files:
 
 - The change task or `exploration.md`. Its `## Context changes` apply to this work.
@@ -83,12 +85,22 @@ For an exploration, write these items under `## Evidence`:
 
 ## 7. Finish
 
+In a change task with a pull request, run triage again before you push (see "Triage").
+
 1. For a change task, commit the work on the branch, and push the branch: `git -C repos/<name> push origin task/<id>`. Push only `task/<id>` to a repository of the product, never its default branch. Do not merge.
 2. When the task has screenshots, commit them in the hub, and push the hub as the state machine gives for a change of status. The commit of the push is the `<commit>` of their images.
 3. When the branch has no pull request, open one to the default branch. When it has one, update its body (`gh pr edit --body`). The title is the id and the title of the task. The body has the goal, the result of each criterion, the screenshots, and the items under `## Context changes` and `## Discovered work` of the task, under the same headings. Do not open it as a draft. Write the URL of each pull request in `pull_requests` of the task.
    - Show each screenshot as an image, so that the person sees it in the pull request: `![<page and state>](https://github.com/<owner>/<hub>/raw/<commit>/tasks/T-<id>/<file>)`. `<owner>/<hub>` is the GitHub repository of the hub (`git -C <hub folder> remote get-url origin`). A link to a file is not enough.
    - Put a line above each image that names the page, the state and the width.
 4. Commit the task file in the hub. Set the status to `review`.
+
+## Triage
+
+Run the triage skill as a subagent. Give it this request: `Use the triage skill for <id>. It runs inside a build.` Add the command that prints the changes and the command that reports a fault, from your request. Wait for its hand back.
+
+- When triage wrote a question under `## Questions`, use the stop rule.
+- When triage wrote new items under `## Rework`, read each item and the comment or the check that it links. Do each item by step 3. Run the checks by step 5, and update the evidence by step 6.
+- When triage handed back a way out other than `nothing`, run triage again. When it hands back `nothing`, go on.
 
 ## Hand back
 

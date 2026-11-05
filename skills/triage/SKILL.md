@@ -13,7 +13,9 @@ This skill reads the pull requests of one change task in `review`, and chooses t
 
 ## 1. Read
 
-1. Read the task that the request names. Its status must be `review`. If it is not, say the status, and stop.
+Inside a build, run the command that the request gives before you read. It prints the changes. When it prints nothing, hand back `nothing`, and stop. Write no comment.
+
+1. Read the task that the request names. Its status must be `review`. Inside a build, it must be `building`. If it is not, say the status, and stop.
 2. Read each decision in its `decisions`, and the files in `context/rules/` that are about the work.
 3. For each pull request in `pull_requests` of the task, or of `task/<id>` when the list is empty, read:
    - the diff: `gh pr diff <url>`;
@@ -56,6 +58,15 @@ When you changed the task and the status stays `review`, commit the task, and pu
 Write one comment on each pull request: `**Triage**: <the way out>. <the reason, in one or two sentences>.`
 
 For a rework and for a decision of the person, end the comment with: `The pull request is a draft until the build hands it back. Do not merge it before then.` The worker makes it a draft at its next poll.
+
+## Inside a build
+
+Build runs this skill as a subagent, and the request says so. Do the steps above, with these differences:
+
+- Do not change the status. The build changes it.
+- For a rework, write the items under `## Rework`. When the task has `## Rework`, add the items to it.
+- For a decision of the person, write the question under `## Questions`.
+- Do not commit the task, and do not push the hub. The build does it.
 
 ## Hand back
 

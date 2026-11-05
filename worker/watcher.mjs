@@ -160,7 +160,8 @@ export function fingerprint(hub, task, prs, triagedAt) {
       changes.push(`${pr.url} has a merge conflict with its base branch`)
     }
   }
-  return { key: JSON.stringify(ids.sort()), changes, reviewed }
+  // ids[i] is the id of changes[i]
+  return { key: JSON.stringify([...ids].sort()), ids, changes, reviewed }
 }
 
 // ---- pull requests --------------------------------------------------------------------------------------

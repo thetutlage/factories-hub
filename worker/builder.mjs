@@ -3,7 +3,10 @@
 // build skill. One build at a time in each hub.
 import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, symlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { DRY, HOST, factoryOf, git, hubWorktree, log, removeFolder, reportOnce, setStatus, sh, startSession } from './lib.mjs'
+import { fileURLToPath } from 'node:url'
+import { DRY, HOST, factoryOf, git, hubWorktree, log, removeFolder, reportOnce, reportTarget, setStatus, sh, startSession } from './lib.mjs'
+
+const CHANGES = fileURLToPath(new URL('changes.mjs', import.meta.url))
 
 export function builder({ name, hub, hubState, tasks, branch, running }) {
   cleanUp(hub, hubState, tasks, running)
@@ -85,7 +88,15 @@ function build(name, hub, hubState, task, branch) {
   // after the claim, a failure leaves the task "building" with no session, so it is reported
   try {
     prepare(name, hub, task, folder)
-    const agent = startSession(folder, `${name} ${task.id}`, `Use the build skill to build ${task.id}. The worker claimed it for this run, so its status is building.`, task)
+    const target = reportTarget(name)
+    const prompt = [
+      `Use the build skill to build ${task.id}. The worker claimed it for this run, so its status is building.`,
+      `The command that prints the changes on its pull requests since the last triage: node '${CHANGES}' '${name}' '${task.id}'`,
+      target
+        ? `Report a fault outside the task as a new issue: gh issue create --repo ${target.repo} --title '${target.titlePrefix}${task.id}: <the fault in a few words>' --body '<what failed, and the cause>'.`
+        : '',
+    ].filter(Boolean).join('\n')
+    const agent = startSession(folder, `${name} ${task.id}`, prompt, task)
     hubState.builds[task.id] = { agent, folder, started: new Date().toISOString() }
     log(`${name}: started ${task.id} in session ${agent}`)
   } catch (error) {

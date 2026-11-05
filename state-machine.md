@@ -47,6 +47,7 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 - Build opens one pull request in each repository of the task, and writes its URL in `pull_requests` of the task.
 - The body of the pull request has the items under `## Context changes` and `## Discovered work`. A merge accepts the task and these items.
 - In a task with `## Rework`, build makes each change that the section gives, on the same branch and pull request.
+- In a task with a pull request, build runs triage as a subagent when it starts, and again before it hands the task back. When a triage writes `## Rework`, build does it, and runs triage again. Build pushes and hands the task back only when a triage finds no change.
 - Build pushes only `task/<id>` to a repository of the product, never its default branch. The default branch changes only when the person merges a pull request.
 - Build does not wait for the checks on GitHub. It runs the checks of the repository, pushes, and sets the status. The watcher script gives each check result to triage.
 - When a build session ends with the task still `building` in the hub, the worker looks at the hub commits of the build folder that are not on the default branch. When each of them changes only the task's file or its screenshots, and sets a status other than `building`, the worker pushes them and syncs the issue. A session that may not push the default branch, such as Codex in `auto-review`, ends this way. Anything else is reported, and the person decides.
@@ -77,6 +78,15 @@ Triage reads the pull request and its task, and chooses one way out. Then it act
 | Nothing to do | Nothing. |
 
 Each triage ends with one comment on the pull request. It gives the way out and the reason. For a rework and for a decision of the person, the comment also says that the pull request is a draft until the build hands it back.
+
+### Triage inside a build
+
+The request of the build gives the command that prints the changes since the last triage. The command records the start of this triage, so the watcher does not triage the same changes again. Triage takes each change at once, with no 5-minute wait.
+
+Triage does each action of the table, with these differences:
+
+- It does not change the status. For a rework, it writes `## Rework`, and build does it. For a decision of the person, it writes the question under `## Questions`, and build sets `blocked`.
+- When the command prints no change, triage writes no comment.
 
 ## Exploration
 
