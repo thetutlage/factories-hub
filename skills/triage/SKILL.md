@@ -1,11 +1,11 @@
 ---
 name: triage
-description: Triage — read the pull requests of a change task in review after they change, choose the way out, and act on it. Use when the watcher script starts it, or when a person asks what a pull request of a task needs.
+description: Triage — read the pull requests of a change task in review or blocked after they change, choose the way out, and act on it. Use when the watcher script starts it, or when a person asks what a pull request of a task needs.
 ---
 
 # Triage
 
-This skill reads the pull requests of one change task in `review`, and chooses the way out, as a person who looks at a pull request does. No person watches the run. Do not ask questions in the session. Ask on the pull request.
+This skill reads the pull requests of one change task in `review` or `blocked`, and chooses the way out, as a person who looks at a pull request does. No person watches the run. Do not ask questions in the session. Ask on the pull request.
 
 **Product hub.** Run in the product hub. The hub has `CLAUDE.md`, `context/`, `tasks/` and `explorations/` at its root. If they are missing, say that this is not a product hub, and stop. Read `CLAUDE.md` of the hub.
 
@@ -15,7 +15,7 @@ This skill reads the pull requests of one change task in `review`, and chooses t
 
 Inside a build, run the command that the request gives before you read. It prints the changes. When it prints nothing, hand back `nothing`, and stop. Write no comment.
 
-1. Read the task that the request names. Its status must be `review`. Inside a build, it must be `building`. If it is not, say the status, and stop.
+1. Read the task that the request names. Its status must be `review` or `blocked`. Inside a build, it must be `building`. If it is not, say the status, and stop.
 2. Read each decision in its `decisions`, and the files in `context/rules/` that are about the work.
 3. For each pull request in `pull_requests` of the task, or of `task/<id>` when the list is empty, read:
    - the diff: `gh pr diff <url>`;
@@ -28,6 +28,8 @@ Inside a build, run the command that the request gives before you read. It print
 The request gives the changes since the last triage. Choose the way out for these changes. Use the rest as context.
 
 ## 2. Choose the way out
+
+**A task in `blocked`.** It waits on the open questions under `## Questions`, and the person can answer one on the pull request. For each comment of the person that answers an open question, tick the question and write the answer under it: `- Answer: <the answer> (the person, on the pull request: <the link of the comment>, <date>).` Write what the answer asks into `## Rework`. When every question is answered, set the status to `ready`. When a comment of the person does not answer a question clearly, reply in its thread with what is still open, and keep the status `blocked`. Each other change of a blocked task takes a way out below, and the status stays `blocked` while a question is open.
 
 For each change, choose one way out of the table in the state machine:
 
@@ -45,13 +47,13 @@ When the changes give two or more ways out, do each of them.
 - **Rework:** write `## Rework` in the task, before `## Evidence`. Write one item for each change: what to change, and the link of the comment or the check. Set the status to `ready`.
 - **Answer:** reply in the thread of the comment. For a review comment, use `gh api repos/<owner>/<repo>/pulls/<number>/comments/<comment id>/replies -f body='<reply>'`. For a comment on the conversation, use `gh pr comment <url> --body '<reply>'`.
 - **New work:** reply that it is new work. Write it under `## Discovered work` of the task.
-- **A decision of the person:** ask the question on the pull request. Write it under `## Questions` of the task. Set the status to `blocked`. When there is also rework, write `## Rework` too. The build does it after probe settles the question.
+- **A decision of the person:** ask the question on the pull request. Write it under `## Questions` of the task. Set the status to `blocked`. When there is also rework, write `## Rework` too. The build does it after the question is settled, by probe or by the person's answer on the pull request.
 - **A fault outside the task:** open a new issue with the command that the request gives: what failed, and the cause. Open one issue for each fault, and do not comment on an earlier issue.
 - **Nothing to do:** nothing.
 
 Send each command on its own, with no shell function or loop, so that the permission rules match it. Do not change the code. Do not push a branch.
 
-When you changed the task and the status stays `review`, commit the task, and push the hub as the state machine gives for a change of status.
+When you changed the task and the status stays `review` or `blocked`, commit the task, and push the hub as the state machine gives for a change of status. When the push is rejected, fetch, rebase on the default branch, and push again.
 
 ## 4. Finish
 

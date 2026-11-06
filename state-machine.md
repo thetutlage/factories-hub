@@ -26,6 +26,7 @@ This file is the only place for the states of the factory and the rules that mov
 | `building` | `blocked` | build | a factory machine |
 | `review` | `ready` | triage, for rework | a factory machine |
 | `review` | `blocked` | triage | a factory machine |
+| `blocked` | `ready` | triage, when the person answers each question on the pull request | a factory machine |
 | `review` | `accepting` | the watcher script, when each pull request is merged | a factory machine |
 | `review` | `draft` | the watcher script, when a pull request is closed with no merge | a factory machine |
 | `accepting` | `done` | accept | a factory machine |
@@ -54,10 +55,12 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 
 ## The watcher script
 
-The watcher script looks at the pull requests of each task in `review`.
+The watcher script looks at the pull requests of each task in `review`, and of each task in `blocked`.
 
 - When each pull request is merged, it sets the task to `accepting`, and starts accept. Accept promotes the items in the body of the pull request, and sets the task to `done`.
 - When a pull request is closed with no merge, it sets the task to `draft`, and reports it in a new issue in the fleet repository.
+- When a pull request of a task in `blocked` has a change since the last triage, it starts triage too. The person can answer a question on the pull request; triage writes the answer under `## Questions`, and sets `ready` when each question is answered.
+- When a triage or a build session ends before it pushed its hand-back, the worker pushes it: the hub commits of its folder that change only the task, rebased on the default branch.
 - When a pull request has a change since the last triage, it starts triage on the pull request. A change is a new review, a new comment, a new commit, a new result of a check, or a merge conflict. A change that a person makes while the task is `ready` or `building` counts at the next triage. A submitted review starts triage at the next poll. Each other change starts it when it is 5 minutes old, so that a person can write several comments.
 
 ## Drafts

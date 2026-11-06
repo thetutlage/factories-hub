@@ -2,11 +2,13 @@
 // script" in state-machine.md. Each pull request merged: the task goes to `accepting`, and an accept
 // session starts. A pull request closed with no merge: the task goes back to `draft`. A change on an open
 // pull request: a triage session starts, at once for a submitted review, and for other changes once they
-// are 5 minutes old. The activity of the factory itself is
-// not a change, so the replies and comments of its own sessions do not start a triage.
+// are 5 minutes old. A task in `blocked` waits on the person, who can answer on its pull request: a change
+// on its open pull requests starts a triage too. The activity of the factory itself is
+// not a change, so the replies and comments of its own sessions do not start a triage. A triage session
+// that ended before it pushed its hand-back gets it pushed, as a build does.
 import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { DRY, FACTORY_LOGIN, changeStatus, git, hubWorktree, log, removeFolder, reportOnce, reportTarget, repoSlugs, sh, startSession } from './lib.mjs'
+import { DRY, FACTORY_LOGIN, changeStatus, git, hubWorktree, log, pushHandBack, removeFolder, reportOnce, reportTarget, repoSlugs, sh, startSession } from './lib.mjs'
 
 const QUIET_MS = 5 * 60 * 1000
 const FAILED = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE', 'NEUTRAL', 'ERROR'])
@@ -16,9 +18,10 @@ export function watcher(context) {
   hubState.accepts ??= {}
   hubState.watch ??= {}
   cleanUp(context)
-  for (const task of tasks.filter((t) => t.status === 'review' || t.status === 'accepting')) {
+  for (const task of tasks.filter((t) => ['review', 'blocked', 'accepting'].includes(t.status))) {
     try {
       if (task.status === 'review') review(context, task)
+      else if (task.status === 'blocked') blocked(context, task)
       else accepting(context, task)
     } catch (error) {
       log(`${context.name}: ${task.id}: ${error.message}`)
@@ -44,6 +47,14 @@ function review(context, task) {
 
   if (!changeStatus(hub, task, branch, 'review', 'accepting', `chore: accept ${task.id}, each of its pull requests is merged`)) return
   startAccept(context, task, prs)
+}
+
+// a task in blocked: the person can answer its questions on its open pull requests, and triage records it
+function blocked(context, task) {
+  const prs = pullRequests(context.hub, task)
+  if (!prs) return
+  const open = prs.filter((pr) => pr.state === 'OPEN')
+  if (open.length) triage(context, task, open)
 }
 
 // a task in accepting: its accept session runs, or ended, or never started on this machine
@@ -74,6 +85,9 @@ function startAccept({ name, hub, hubState, branch }, task, prs) {
 function triage({ name, hub, hubState, branch, running }, task, prs) {
   const watch = (hubState.watch[task.id] ??= {})
   if (watch.agent && running(watch.agent)) return
+  // the last triage ended before it pushed: push it, and look again at the next poll
+  const folder = join(hub, '.factory/triage', task.id)
+  if (watch.agent && pushHandBack(name, task, folder, branch, 'triage', () => true)) return
 
   const { key, changes, reviewed } = fingerprint(hub, task, prs, watch.triagedAt)
   if (!changes.length || key === watch.triaged) return delete watch.pending
@@ -84,13 +98,13 @@ function triage({ name, hub, hubState, branch, running }, task, prs) {
     if (Date.now() - watch.pending.since < QUIET_MS) return
   }
 
-  const folder = join(hub, '.factory/triage', task.id)
   log(`${name}: triage of ${task.id} for ${changes.length} changes`)
   if (DRY) return log(`would start triage of ${task.id}:\n${changes.map((change) => `  - ${change}`).join('\n')}`)
   hubWorktree(hub, folder, branch)
   const target = reportTarget(name)
   const prompt = [
     `Use the triage skill for ${task.id}. Its pull requests: ${prs.map((pr) => pr.url).join(', ')}.`,
+    task.status === 'blocked' ? `${task.id} is blocked on the questions under its \`## Questions\`. The changes can answer them.` : '',
     'The changes since the last triage:',
     ...changes.map((change) => `- ${change}`),
     target
@@ -116,10 +130,10 @@ const PR_QUERY = `query($owner: String!, $repo: String!, $number: Int!) { reposi
 // What changed on the pull requests since the last triage started, without the factory's own activity:
 // reviews, comments, a commit of a person, failed checks of the head commit, and a merge conflict. A person
 // can comment while a rework waits or builds, so the time is the start of the last triage, not the last
-// change to `review`. With no triage yet, it is the last change to `review`. The key is the same while
-// nothing new comes.
+// change to `review`. With no triage yet, it is the last change to the task's status (`review` or
+// `blocked`). The key is the same while nothing new comes.
 export function fingerprint(hub, task, prs, triagedAt) {
-  const since = Date.parse(triagedAt) || Date.parse(git(['log', '-1', '--format=%cI', '-G', '^status: review$', '--', join('tasks', task.file)], hub).out) || 0
+  const since = Date.parse(triagedAt) || Date.parse(git(['log', '-1', '--format=%cI', '-G', `^status: ${task.status}$`, '--', join('tasks', task.file)], hub).out) || 0
   const isPerson = (author) => author && author.login.replace(/\[bot\]$/, '') !== FACTORY_LOGIN
   const ids = []
   const changes = []
@@ -187,8 +201,9 @@ export function pullRequests(hub, task) {
   return prs
 }
 
-// removes the accept folders of finished tasks, and the triage folders of tasks that left review
-function cleanUp({ hub, hubState, tasks, running }) {
+// removes the accept folders of finished tasks, and the triage folders of tasks that left review and blocked,
+// once a hand-back they hold is pushed
+function cleanUp({ name, hub, hubState, tasks, branch, running }) {
   for (const [id, accept] of Object.entries(hubState.accepts)) {
     const task = tasks.find((t) => t.id === id)
     if (!['done', 'discarded'].includes(task?.status) || running(accept.agent)) continue
@@ -198,8 +213,9 @@ function cleanUp({ hub, hubState, tasks, running }) {
   }
   for (const [id, watch] of Object.entries(hubState.watch)) {
     const task = tasks.find((t) => t.id === id)
-    if (task?.status === 'review' || running(watch.agent)) continue
+    if (['review', 'blocked'].includes(task?.status) || running(watch.agent)) continue
     const folder = join(hub, '.factory/triage', id)
+    if (task && watch.agent && pushHandBack(name, task, folder, branch, 'triage', () => true)) continue
     if (!DRY && existsSync(folder)) removeFolder(hub, folder, task)
     delete watch.agent
     if (!task || ['done', 'discarded'].includes(task.status)) delete hubState.watch[id]

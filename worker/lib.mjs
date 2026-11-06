@@ -129,6 +129,42 @@ export function setStatus(folder, task, from, to, message, branch) {
   return false
 }
 
+// Pushes the hub commits that a session of the worker left in its folder because it ended before it pushed,
+// or its push was rejected when the default branch moved: the commits on top of the default branch that
+// change only the task's own file or its screenshots (tasks/<id>/), when `accept` takes the task's status in
+// them. It rebases and pushes, three times at most, as setStatus does. A rebase that conflicts drops them,
+// for the person. The repositories of the task under repos/ are never touched. Returns whether it pushed.
+export function pushHandBack(name, task, folder, branch, kind, accept) {
+  if (!folder || !existsSync(folder)) return false
+  git(['fetch', '--quiet', 'origin'], folder, { check: false })
+  const ahead = git(['rev-list', '--count', `${branch}..HEAD`], folder, { check: false })
+  if (!ahead.ok || Number(ahead.out) === 0) return false
+  const changed = git(['diff', '--name-only', `${branch}...HEAD`], folder).out.split('\n').filter(Boolean)
+  const own = (file) => file === `tasks/${task.file}` || file.startsWith(`tasks/${task.id}/`)
+  if (!changed.length || !changed.every(own)) return false
+  const status = git(['show', `HEAD:tasks/${task.file}`], folder, { check: false }).out.match(/^status:\s*(\S+)/m)?.[1]
+  if (!status || !accept(status)) return false
+
+  log(`${name}: ${task.id}'s ${kind} session ended before it pushed its hand-back (${status}); pushing it`)
+  if (DRY) return true
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const rebase = git(['-c', 'commit.gpgsign=false', 'rebase', '--quiet', branch], folder, { check: false })
+    if (!rebase.ok) {
+      git(['rebase', '--abort'], folder, { check: false })
+      return false
+    }
+    if (git(['push', '--quiet', 'origin', `HEAD:${branch.replace(/^origin\//, '')}`], folder, { check: false }).ok) {
+      if (existsSync(join(folder, 'scripts/sync-issues.mjs'))) {
+        const sync = sh('node', ['scripts/sync-issues.mjs', task.id], folder, { check: false })
+        if (!sync.ok) log(`${name}: ${task.id}: the issue sync failed: ${sync.err || sync.out}`)
+      }
+      return true
+    }
+    git(['fetch', '--quiet', 'origin'], folder, { check: false })
+  }
+  return false
+}
+
 // a change of status in a short-lived worktree of the hub
 export function changeStatus(hub, task, branch, from, to, message) {
   if (DRY) return log(`would set ${task.id} from ${from} to ${to}`) ?? true
