@@ -11,7 +11,8 @@
 // FACTORY_HOME (default ~/.factory) holds config.json, state.json, the fleet clone and worker.log.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { builder } from './builder.mjs'
 import { drafts } from './drafts.mjs'
 import { DRY, HOME, HOST, act, config, git, log, readTasks, report, reportOnce, saveState, sessions, sh, state } from './lib.mjs'
@@ -37,6 +38,8 @@ try {
 }
 
 function poll() {
+  updateSelf()
+
   // the sessions need the Paseo daemon. Quitting the desktop app can stop a daemon that it started, and
   // `daemon start` does nothing when one runs.
   if (!DRY) {
@@ -60,6 +63,25 @@ function poll() {
       pollFailed(name, error)
     }
   }
+}
+
+// The worker's own checkout follows origin, so a fix pushed to this repository runs from the next poll: this
+// poll has already loaded its code. A pull that fails, for example on local changes, is logged once for each
+// new failure, and the worker goes on with the code it has.
+function updateSelf() {
+  const self = join(dirname(fileURLToPath(import.meta.url)), '..')
+  if (DRY || !existsSync(join(self, '.git'))) return
+  const before = git(['rev-parse', '--short', 'HEAD'], self, { check: false }).out
+  const pulled = git(['pull', '--quiet', '--ff-only'], self, { check: false })
+  if (!pulled.ok) {
+    const failure = (pulled.err || pulled.out).split('\n')[0]
+    if (state.selfUpdateFailure !== failure) log(`the worker could not update ${self}, and runs ${before}: ${failure}`)
+    state.selfUpdateFailure = failure
+    return
+  }
+  delete state.selfUpdateFailure
+  const after = git(['rev-parse', '--short', 'HEAD'], self, { check: false }).out
+  if (after !== before) log(`the worker updated ${self} from ${before} to ${after}. The next poll runs it`)
 }
 
 // A failed poll is reported once, and again after a poll of the hub works. The report is marked only when

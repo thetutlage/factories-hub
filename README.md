@@ -66,6 +66,7 @@ node ~/.factory/factories-hub/worker/install.mjs --fleet <git url of the fleet> 
 
 It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code and Paseo signed in. Paseo's desktop app does not need to run: use its daemon, and reach it from your phone or laptop. Each poll starts the daemon when it does not run. launchd runs the worker every 2 minutes (`--every <seconds>`). Each poll:
 
+1. Pulls the worker's own checkout, `~/.factory/factories-hub`, so a fix pushed to this repository runs from the next poll. A pull that fails is logged, and the worker runs the code it has.
 1. Pulls the fleet. A new hub is cloned into `~/factories/` (`--hubs <folder>`) and set up with `scripts/setup.mjs`. The worker then opens an issue in the fleet repository, `<hub> on <machine>: Ready.`, and closes it: the record of the hand-off.
 2. Fetches each hub, and fast-forwards its checkout. The worker never edits the checkout. When it has local changes, the worker skips the hub and reports it once.
 3. Runs the watcher (`worker/watcher.mjs`) on each task in `review`, `blocked` and `accepting`. A merge starts accept, a closed pull request sets the task back to `draft`, and other changes on a pull request start triage. On a blocked task, triage records the person's answers on the pull request and sets the task to `ready`. A triage or build session that ended before it pushed its hand-back gets it pushed by the worker.
