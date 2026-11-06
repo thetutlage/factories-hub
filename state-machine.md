@@ -46,7 +46,7 @@ Build, triage and accept on a factory machine use the factory identity on GitHub
 
 - Build takes the `ready` task with a `## Rework` section first. Then it takes the `ready` task with the lowest number, with each task in its `depends_on` at `done`.
 - Build opens one pull request in each repository of the task, and writes its URL in `pull_requests` of the task.
-- The body of the pull request has the items under `## Context changes` and `## Discovered work`. A merge accepts the task and these items.
+- The body of the pull request has the items under `## Deployment requirements`, `## Context changes` and `## Discovered work`. The person reads the deployment requirements before the merge. A merge accepts the task and these items.
 - In a task with `## Rework`, build makes each change that the section gives, on the same branch and pull request.
 - In a task with a pull request, build runs triage as a subagent when it starts, and again before it hands the task back. When a triage writes `## Rework`, build does it, and runs triage again. Build pushes and hands the task back only when a triage finds no change.
 - Build pushes only `task/<id>` to a repository of the product, never its default branch. The default branch changes only when the person merges a pull request.

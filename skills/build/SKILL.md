@@ -77,6 +77,16 @@ For a change task, write these items under `## Evidence`:
 - Each decision that you made about the code, with its reason.
 - When the change shows something to a person, a screenshot of each page and each state that changed. Take them with a headless browser. Save them in the hub in `tasks/T-<id>/`, and show each one as an image (step 7).
 
+For a change task, write `## Deployment requirements` again on each build, a rework too, and add the section before `## Questions` when the task has none. Read the whole diff of each branch against the default branch, not only the changes of this run. Write each thing that a person does before or after the merge, so that the change works on staging and on production:
+
+- Each environment variable that is new, renamed, removed or required now: its name, what its value is, and where it comes from. Read the validation of the environment (for example `start/env.ts`) and `.env.example`.
+- Each secret, and the command that sets it on each environment.
+- Each migration, and if the deploy runs it.
+- Each outside service to set up or change: a webhook, an OAuth app, a DNS record, a token, a channel.
+- Each command to run once, for example an import or a backfill.
+
+For each item, say the environment (staging, production or both) and the order (before the merge, before the deploy, or after it). Keep the items that probe wrote. When there is nothing to do, write `None.`
+
 For an exploration, write these items under `## Evidence`:
 
 - What you built or tried, and the path of each artifact.
@@ -89,7 +99,7 @@ In a change task with a pull request, run triage again before you push (see "Tri
 
 1. For a change task, commit the work on the branch, and push the branch: `git -C repos/<name> push origin task/<id>`. Push only `task/<id>` to a repository of the product, never its default branch. Do not merge.
 2. When the task has screenshots, commit them in the hub, and push the hub as the state machine gives for a change of status. The commit of the push is the `<commit>` of their images.
-3. When the branch has no pull request, open one to the default branch. When it has one, update its body (`gh pr edit --body`). The title is the id and the title of the task. The body has the goal, the result of each criterion, the screenshots, and the items under `## Context changes` and `## Discovered work` of the task, under the same headings. Do not open it as a draft. Write the URL of each pull request in `pull_requests` of the task.
+3. When the branch has no pull request, open one to the default branch. When it has one, update its body (`gh pr edit --body`). The title is the id and the title of the task. The body has the goal, `## Deployment requirements` of the task right after it, the result of each criterion, the screenshots, and the items under `## Context changes` and `## Discovered work` of the task, under the same headings. Do not open it as a draft. Write the URL of each pull request in `pull_requests` of the task.
    - Show each screenshot as an image, so that the person sees it in the pull request: `![<page and state>](https://github.com/<owner>/<hub>/raw/<commit>/tasks/T-<id>/<file>)`. `<owner>/<hub>` is the GitHub repository of the hub (`git -C <hub folder> remote get-url origin`). A link to a file is not enough.
    - Put a line above each image that names the page, the state and the width.
 4. Commit the task file in the hub. Set the status to `review`.

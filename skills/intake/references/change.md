@@ -27,6 +27,10 @@ provider:
 
 ## Context changes
 
+## Deployment requirements
+
+<!-- What a person does to deploy this change: each environment variable, secret, migration, service and command. The build updates it. -->
+
 ## Questions
 
 ## Discovered work

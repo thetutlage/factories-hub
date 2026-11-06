@@ -17,6 +17,8 @@ Read the task, and the code and the systems that it uses. Find each thing that t
 
 - A criterion about how a page looks points to the design. When it gives a size, a colour, a spacing or a position, change it to point to the design.
 
+- When the change needs something on staging or production that is known now, such as an environment variable, a secret or an outside service, write it under `## Deployment requirements`. Add the section before `## Questions` when the task has none. The build adds the rest.
+
 - When the code or the docs settle it, read them. Do not ask the person.
 - Ask the person about the rest in one group. Give each question a number and your recommended answer:
 
