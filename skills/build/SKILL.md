@@ -67,6 +67,16 @@ For a change task, run each check that `CLAUDE.md` of the repository gives. If i
 - When the check still fails, write the failure under `## Evidence`. Commit the work on the branch, and push it. Set the status to `blocked`. End the run.
 - Do not change a check, skip a test or remove a test to make it pass.
 
+### External services
+
+When a test of the change fakes an external service, the tests do not prove that the change works. Run the app with the real service, and use each flow that the change touches.
+
+- When a flow fails, fix the code, run the checks again, and use the flow again. Do this until each flow works.
+- When the fix needs the person, for example a token with a missing scope, write what is missing under `## Evidence`, and write the request to the person under `## Questions`. Commit the work on the branch, and push it. Set the status to `blocked`. End the run.
+- When each flow works, write a report under `## Evidence`: each flow, what you did, and the result. Add a screenshot of each flow, as step 6 gives.
+
+When no test of the change fakes an external service, do not run the app for this check.
+
 ## 6. Write the evidence
 
 For a change task, write these items under `## Evidence`:
