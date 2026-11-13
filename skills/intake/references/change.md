@@ -21,6 +21,8 @@ provider:
 
 - [ ] <!-- One check. -->
 
+## Implementation decisions
+
 ## Out of scope
 
 -

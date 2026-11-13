@@ -15,6 +15,10 @@ Read the task in `tasks/` that the request names. When the request names no task
 
 Read the task, and the code and the systems that it uses. Find each thing that the task leaves unsettled, and settle it. Do not assume.
 
+When a repository of the task has a Flow harness, read it first. `CLAUDE.md` or `AGENTS.md` of the repository gives the index of the harness docs and the table of the Flow skills. Read each harness doc and each skill that is about the work.
+
+Settle how the code is written too, not only what the product does. Ask each implementation decision with your recommended answer, in a later group than the product answers that it depends on. Write the answers under `## Implementation decisions` of the task: the modules that change and their interfaces, the schema changes, the routes, a refactor to do first, and the tests with the seam that each test uses.
+
 - A criterion about how a page looks points to the design. When it gives a size, a colour, a spacing or a position, change it to point to the design.
 
 - When the change needs something on staging or production that is known now, such as an environment variable, a secret or an outside service, write it under `## Deployment requirements`. Add the section before `## Questions` when the task has none. The build adds the rest.

@@ -30,6 +30,7 @@ Read these files:
 - Each decision in its `decisions`.
 - `context/glossary.md`, and the files in `context/rules/` that are about the work.
 - `CLAUDE.md` of each repository in `repos`. It tells you how to write the code and how to run the checks.
+- The Flow harness of each repository in `repos`, when it has one. `CLAUDE.md` or `AGENTS.md` of the repository gives the index of the harness docs and the table of the Flow skills. Read each harness doc that is about the work. Invoke each Flow skill when its row says to.
 - `## Rework` of the task, when it has one. Triage wrote it. Each item links a comment or a check of a pull request in `pull_requests`. Read each one.
 - For a change task with an `exploration`, its `exploration.md` and its artifacts. Use the artifacts as a reference for the change.
 
