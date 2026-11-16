@@ -4,7 +4,7 @@
 import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, symlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DRY, HOST, factoryOf, git, hubWorktree, log, pushHandBack, removeFolder, reportOnce, reportTarget, setStatus, sh, startSession } from './lib.mjs'
+import { DRY, HOST, factoryOf, git, hubWorktree, log, pushHandBack, removeFolder, repoSlugs, reportOnce, reportTarget, setStatus, sh, startSession } from './lib.mjs'
 
 const CHANGES = fileURLToPath(new URL('changes.mjs', import.meta.url))
 
@@ -78,9 +78,12 @@ function build(name, hub, hubState, task, branch) {
   }
 }
 
-// a worktree of each repository of the task on task/<id>, with the copied files and the setup of factory.json
+// a worktree of each repository of the task on task/<id>, with the copied files and the setup of factory.json.
+// For a task whose `source` is a pull request of the repository, a new task/<id> starts from the head of that
+// pull request, so the commits of the contributor stay (state-machine.md, "A pull request of a contributor").
 function prepare(name, hub, task, folder) {
   const factory = factoryOf(folder)
+  const slugs = repoSlugs(hub)
   if (task.repos.some((repo) => !existsSync(join(hub, 'repos', repo)))) sh('npx', ['-y', '@dean0x/mars', 'clone'], hub)
   for (const repo of task.repos) {
     const main = join(hub, 'repos', repo)
@@ -90,7 +93,12 @@ function prepare(name, hub, task, folder) {
     if (!existsSync(tree)) {
       const local = git(['rev-parse', '--verify', '--quiet', taskBranch], main, { check: false }).ok
       const remote = git(['rev-parse', '--verify', '--quiet', `origin/${taskBranch}`], main, { check: false }).ok
-      const base = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], main, { check: false }).out || 'origin/main'
+      let base = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], main, { check: false }).out || 'origin/main'
+      const pull = task.source?.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)$/)
+      if (!local && !remote && pull && pull[1] === slugs[repo]) {
+        git(['fetch', '--quiet', 'origin', `pull/${pull[2]}/head`], main)
+        base = git(['rev-parse', 'FETCH_HEAD'], main).out
+      }
       if (local) git(['worktree', 'add', '--quiet', tree, taskBranch], main)
       else git(['worktree', 'add', '--quiet', '-b', taskBranch, tree, remote ? `origin/${taskBranch}` : base], main)
     }

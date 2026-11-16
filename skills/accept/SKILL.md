@@ -64,8 +64,9 @@ When a new decision replaces an old decision, set the status of the old decision
 ### Finish
 
 1. Add each item under `## Discovered work` to `inbox.md`, with the id of the task.
-2. Set the status to `done`.
-3. When the task has an `exploration`, and each change task with that `exploration` is `done`, set the status of the exploration to `consumed`.
+2. When `source` is a pull request that is still open, the factory finished it in its own pull request. Close it with a comment that thanks its author and links the merged pull request: `gh pr close <url> --comment '<comment>'`.
+3. Set the status to `done`.
+4. When the task has an `exploration`, and each change task with that `exploration` is `done`, set the status of the exploration to `consumed`.
 
 ## Accepted by merge
 

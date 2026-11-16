@@ -70,6 +70,8 @@ export function readTasks(hub) {
         repos: list(meta.repos),
         deps: list(meta.depends_on),
         prs: list(meta.pull_requests),
+        // the issue or pull request on GitHub that the task came from, or null for a task the hub started
+        source: meta.source?.replace(/[#?].*$/, '').replace(/\/$/, '') || null,
         // the provider of its sessions, or null for the one of factory.json
         provider: meta.provider || null,
         rework: /^## Rework$/m.test(src),

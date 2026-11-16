@@ -1,7 +1,8 @@
 // The factory worker: one poll of the fleet. launchd runs it every few minutes (see install.mjs).
 // For each hub in the fleet's hubs.json, it clones and sets up the hub once, then runs the watcher, which
 // moves the tasks in review (watcher.mjs), the builder, which builds the next ready task (builder.mjs), and
-// keeps each pull request a draft while its task is reworked (drafts.mjs).
+// keeps each pull request a draft while its task is reworked (drafts.mjs). Once a day, it imports the work
+// that starts on GitHub, in a hub that sets `github.import` (state-machine.md, "Work from GitHub").
 // state-machine.md gives the rules of both. A hub with nothing to do costs a `git fetch`, a look at the
 // pull requests of each task in review, and no session.
 //
@@ -15,7 +16,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { builder } from './builder.mjs'
 import { drafts } from './drafts.mjs'
-import { DRY, HOME, HOST, act, config, git, log, readTasks, report, reportOnce, saveState, sessions, sh, state } from './lib.mjs'
+import { DRY, HOME, HOST, act, config, factoryOf, git, hubWorktree, log, readTasks, report, reportOnce, saveState, sessions, sh, state } from './lib.mjs'
 import { watcher } from './watcher.mjs'
 
 // ---- one poll at a time ---------------------------------------------------------------------------------
@@ -131,6 +132,31 @@ function pollHub(url, name) {
   const context = { name, hub, hubState, tasks: readTasks(hub), branch, running: sessions() }
   watcher(context)
   builder(context)
+  importFromGitHub(context)
   // after both, so the draft state follows the statuses they set in this poll
   drafts({ ...context, tasks: readTasks(hub) })
+}
+
+// The import of the issues and pull requests of GitHub, every `github.import.every` hours (24 by default), in
+// a worktree of the hub: the script commits and pushes the hub itself. A failed import is reported once, and
+// tried again an hour later.
+function importFromGitHub({ name, hub, hubState, branch }) {
+  const settings = factoryOf(hub).github?.import
+  if (!settings || !existsSync(join(hub, 'scripts/import-github.mjs'))) return
+  const every = (settings.every ?? 24) * 60 * 60 * 1000
+  const since = Date.now() - (Date.parse(hubState.importedAt) || 0)
+  const sinceTry = Date.now() - (Date.parse(hubState.importTriedAt) || 0)
+  if (since < every || sinceTry < 60 * 60 * 1000) return
+  log(`${name}: importing the issues and pull requests of GitHub`)
+  if (DRY) return log(`would run scripts/import-github.mjs in ${join(hub, '.factory/import')}`)
+  hubState.importTriedAt = new Date().toISOString()
+  const folder = join(hub, '.factory/import')
+  hubWorktree(hub, folder, branch)
+  const result = sh('node', ['scripts/import-github.mjs'], folder, { check: false })
+  if (!result.ok) {
+    return reportOnce(hubState, 'import-failed', name, `The import from GitHub failed. The worker tries it again in an hour:\n\n\`\`\`\n${(result.err || result.out).slice(-1500)}\n\`\`\``)
+  }
+  delete hubState.notified['import-failed']
+  hubState.importedAt = new Date().toISOString()
+  log(`${name}: ${result.out.split('\n').filter((line) => !line.startsWith('synced')).slice(-1)[0] ?? 'imported'}`)
 }

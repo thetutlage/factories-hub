@@ -4,6 +4,10 @@
 // discarded. The hub task stays the source. Milestone titles come from `issues.milestones` in factory.json.
 // The skills run it for their task after each change of its status.
 //
+// A task from GitHub (with `source:`, state-machine.md "Work from GitHub") never creates an issue, and its
+// issue or pull request keeps its own title and body: the sync changes only its status label, and closes it
+// when the task is done or discarded.
+//
 //   node scripts/sync-issues.mjs T-009      sync these tasks
 //   node scripts/sync-issues.mjs            sync every task
 //   node scripts/sync-issues.mjs --dry-run  print what would change
@@ -14,8 +18,11 @@ import { join } from 'node:path'
 const HUB = new URL('..', import.meta.url).pathname
 const DRY = process.argv.includes('--dry-run')
 const IDS = process.argv.slice(2).filter((arg) => /^T-\d+$/.test(arg))
-const STATUSES = ['draft', 'probing', 'ready', 'building', 'review', 'blocked', 'accepting', 'done', 'discarded']
+const STATUSES = ['incoming', 'parked', 'waiting', 'draft', 'probing', 'ready', 'building', 'review', 'blocked', 'accepting', 'done', 'discarded']
 const COLORS = {
+  incoming: 'e0f2fe',
+  parked: 'e7e5e4',
+  waiting: 'fed7aa',
   draft: 'd4d4d8',
   probing: 'c4b5fd',
   ready: '86efac',
@@ -41,13 +48,15 @@ function parse(file) {
   const [, fm, body] = src.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   const meta = Object.fromEntries(fm.split('\n').map((l) => l.match(/^(\w+):\s*(.*)$/)).filter(Boolean).map((m) => [m[1], m[2]]))
   const list = (v) => (v || '').replace(/[[\]"]/g, '').split(',').map((x) => x.trim()).filter(Boolean)
-  return { file, src, meta, body, repo: REPOS[list(meta.repos)[0]], deps: list(meta.depends_on), title: body.match(/^# (.+)$/m)[1] }
+  const source = meta.source?.match(/github\.com\/([^/]+\/[^/]+)\/(?:issues|pull)\/(\d+)/)
+  const repo = source ? source[1] : REPOS[list(meta.repos)[0]]
+  return { file, src, meta, body, repo, source: source && { repo: source[1], number: source[2] }, deps: list(meta.depends_on), title: body.match(/^# (.+)$/m)[1] }
 }
 
 const all = readdirSync(join(HUB, 'tasks'))
   .filter((f) => /^T-\d+-.*\.md$/.test(f))
   .map((f) => parse(join(HUB, 'tasks', f)))
-  .filter((t) => 'issue' in t.meta && t.repo)
+  .filter((t) => ('issue' in t.meta || t.source) && t.repo)
 const byId = Object.fromEntries(all.map((t) => [t.meta.id, t]))
 const tasks = IDS.length ? IDS.map((id) => byId[id]).filter(Boolean) : all
 
@@ -87,7 +96,7 @@ function issueBody(t) {
 }
 
 // first pass: create the missing issues, so the second pass can link dependencies
-for (const t of tasks.filter((t) => !t.meta.issue)) {
+for (const t of tasks.filter((t) => !t.meta.issue && !t.source)) {
   const args = ['issue', 'create', '-R', t.repo, '-t', t.title, '-b', 'Syncing from the hub…']
   const ms = milestone(t.repo, t.meta.milestone)
   if (ms) args.push('-m', ms)
@@ -97,8 +106,27 @@ for (const t of tasks.filter((t) => !t.meta.issue)) {
   console.log('created', t.meta.id, t.meta.issue)
 }
 
+// the issue or pull request of a task from GitHub: only the status label, and closed when the task is finished
+function syncSource(t, status) {
+  const path = `repos/${t.source.repo}/issues/${t.source.number}`
+  if (DRY) return console.log('update', t.meta.id, t.meta.source, status ? `status: ${status}` : '(no status)')
+  const item = JSON.parse(gh('api', path))
+  const want = status ? label(t.source.repo, status) : null
+  const names = item.labels.map((l) => l.name)
+  for (const name of names.filter((name) => name.startsWith('status: ') && name !== want)) {
+    gh('api', '-X', 'DELETE', `${path}/labels/${encodeURIComponent(name)}`)
+  }
+  if (want && !names.includes(want)) gh('api', '-X', 'POST', `${path}/labels`, '-f', `labels[]=${want}`)
+  if (['done', 'discarded'].includes(t.meta.status) && item.state === 'open') gh('api', '-X', 'PATCH', path, '-f', 'state=closed')
+  console.log('synced', t.meta.id, t.meta.source, want ?? '(no status)')
+}
+
 // second pass: the title, body, milestone and status label; closed when the task is finished
 for (const t of tasks) {
+  if (t.source) {
+    syncSource(t, STATUSES.includes(t.meta.status) ? t.meta.status : null)
+    continue
+  }
   const status = STATUSES.includes(t.meta.status) ? t.meta.status : null
   if (DRY) { console.log('update', t.meta.id, t.meta.issue, status ? `status: ${status}` : '(no status)'); continue }
   const issue = JSON.parse(gh('issue', 'view', t.meta.issue, '--json', 'state,labels'))
