@@ -38,6 +38,11 @@ function review(context, task) {
   if (open.length) return triage(context, task, open)
 
   const closed = prs.filter((pr) => pr.state === 'CLOSED')
+  // the pull request of a contributor, closed by its author or the person: the task ends with it
+  if (task.source && closed.some((pr) => pr.url.replace(/\/$/, '') === task.source)) {
+    changeStatus(hub, task, branch, 'review', 'discarded', `chore: discard ${task.id}, its pull request ${task.source} was closed`)
+    return
+  }
   if (closed.length) {
     const key = `closed-${task.id}-${closed.map((pr) => pr.number).join('-')}`
     if (hubState.notified[key]) return

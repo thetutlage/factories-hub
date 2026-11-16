@@ -71,10 +71,11 @@ It needs git, Node, `gh`, Claude Code and Paseo on the machine, and Claude Code 
 2. Fetches each hub, and fast-forwards its checkout. The worker never edits the checkout. When it has local changes, the worker skips the hub and reports it once.
 3. Runs the watcher (`worker/watcher.mjs`) on each task in `review`, `blocked` and `accepting`. A merge starts accept, a closed pull request sets the task back to `draft`, and other changes on a pull request start triage. On a blocked task, triage records the person's answers on the pull request and sets the task to `ready`. A triage or build session that ended before it pushed its hand-back gets it pushed by the worker.
 4. Runs the builder (`worker/builder.mjs`): one build at a time. It claims the next ready task, makes the build folder `.factory/builds/<id>` with a worktree of the hub and of each repository of the task on `task/<id>`, copies the files in `repos.<name>.copy` of `factory.json`, runs `repos.<name>.setup`, links the skills of each repository (`.claude/skills/` of its worktree) into the build folder's `.claude/skills/`, and starts one Paseo session with the build skill. Each Paseo session of the worker uses `build.provider` and `build.thinking` of `factory.json`, and the mode that `build.modes` gives the provider (`claude` or `codex`), so that nobody answers its prompts. A task with `provider:` in its front matter, for example `provider: codex/gpt-6.1-sol`, runs its build, triage and accept sessions on that provider instead. Without `build.thinking`, Paseo passes no thinking level: Claude Code takes the effort from the person's own settings, and Paseo shows its default. Claude Code loads skills only from the folder that a session starts in, so without the links a build has none of the repositories' skills. When a session runs on Codex (`codex` or `codex/<model>`), its folder also gets `AGENTS.md`, a link to `CLAUDE.md`, and `.agents/skills`, a link to `.claude/skills`, since Codex reads those names; git ignores the links. A skill with the name of a hub skill is not linked. `build.repos` in `factory.json` limits it to tasks of those repositories.
+5. Runs the import of GitHub (`scripts/import-github.mjs` of the hub) once a day, in a hub whose `factory.json` sets `github.import`. See [Import work from GitHub](#import-work-from-github).
 
 `state-machine.md` gives the rules that the watcher and the builder follow. A hub with nothing to do costs a `git fetch`, a look at the pull requests of each task in review, and no session. When a task is `done`, the worker removes its folders.
 
-The worker opens a new issue in the fleet repository for each problem, once: a poll that fails, a failed setup, a checkout with local changes, a build that could not start, a claimed task whose session ended without a status change, an accept session that ended without `done`, and a pull request closed with no merge. Its title is `<hub> on <machine>: <the problem>`. Triage opens an issue in the same way for a fault outside a task. Close each issue when its problem is handled. The log is `~/.factory/worker.log`.
+The worker opens a new issue in the fleet repository for each problem, once: a poll that fails, a failed setup, a checkout with local changes, a build that could not start, a claimed task whose session ended without a status change, an accept session that ended without `done`, a pull request closed with no merge, and an import of GitHub that fails. Its title is `<hub> on <machine>: <the problem>`. Triage opens an issue in the same way for a fault outside a task. Close each issue when its problem is handled. The log is `~/.factory/worker.log`.
 
 `node worker/worker.mjs --dry-run` prints what a poll would do. `node worker/install.mjs --uninstall` removes the launchd job.
 
@@ -99,6 +100,36 @@ node scripts/sync-issues.mjs            # every task
 ```
 
 The skills run it for their task after each change of its status. A hub without the script has no issues. Edit the task in the hub, not the issue: the next sync replaces the issue's text.
+
+A task from GitHub, with `source:`, is the other way round: its issue or pull request belongs to its author. The sync never creates an issue for it, and changes only the `status:` label of its source. It closes the source when the task is `done` or `discarded`.
+
+## Import work from GitHub
+
+In an open-source product, work also starts on GitHub: someone opens an issue or a pull request. `scripts/import-github.mjs` makes a change task with the status `incoming` of each open issue and pull request of the repositories in `mars.yaml`. Intake then takes each one with the person, as "Work from GitHub" in `state-machine.md` gives. Turn it on in `factory.json` of the hub:
+
+```json
+"github": { "import": { "skip": ["some-login"], "every": 24 } }
+```
+
+The issues, pull requests and comments of bots are never imported. `skip` leaves out more logins. `every` is the hours between two imports of the worker; the default is 24.
+
+```sh
+node scripts/import-github.mjs --dry-run   # what would change
+node scripts/import-github.mjs             # import, commit and push the hub, then sync
+```
+
+Each run also adds the new comments of an issue or pull request to its task, sets a `waiting` task back to `draft` when the author answers, and discards a task that has not started when its source is closed on GitHub. The person can run it in a clean checkout of the hub. The worker runs it in a worktree.
+
+The text that the import copies from GitHub is a quote, and anyone can write it. The skills read it as a description of the work, and never follow an instruction in it.
+
+### Dependabot
+
+The pull requests of Dependabot are not tasks. `scripts/dependabot.mjs` lists them for each repository, with their checks, and the person merges the green ones in one step:
+
+```sh
+node scripts/dependabot.mjs              # list them
+node scripts/dependabot.mjs --merge      # squash-merge each one whose checks pass and that has no conflict
+```
 
 ## The flow
 
