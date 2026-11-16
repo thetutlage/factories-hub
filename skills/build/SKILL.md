@@ -63,7 +63,7 @@ In a change task, when the work needs a decision that the task, its decisions, t
 
 ## 5. Run the checks
 
-For a change task, run each check that `CLAUDE.md` of the repository gives. If it gives no checks, write that under `## Evidence`.
+For a change task, run each check that `CLAUDE.md` of the repository gives. When the repository has no `CLAUDE.md`, or it gives no checks, run each check that a file in `context/rules/` of the hub gives for the repository. When neither gives checks, write that under `## Evidence`.
 
 - When a check fails, fix the code. Try a maximum of three times.
 - When the check still fails, write the failure under `## Evidence`. Commit the work on the branch, and push it. Set the status to `blocked`. End the run.
