@@ -59,4 +59,5 @@ Write one item for each change:
 | `probe`  | Settles with the person each thing that a change task leaves open                                                               |
 | `build`  | Builds one ready change task or exploration. No person watches it.                                                              |
 | `triage` | Reads the pull requests of a task in review after they change, and chooses the way out. The watcher script starts it.           |
+| `release` | Recommends the releases, writes the notes of a published release, and moves on the tasks that waited for it.                   |
 | `accept` | Reviews the work with a person. Promotes the facts of a change task to `context/`.                                              |

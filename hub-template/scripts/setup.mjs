@@ -14,7 +14,7 @@ const HUB = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
 const NAME = basename(HUB)
 const DRY = process.argv.includes('--dry-run')
 const NO_PASEO = process.argv.includes('--no-paseo')
-const SKILLS = ['intake', 'probe', 'build', 'accept', 'triage']
+const SKILLS = ['intake', 'probe', 'build', 'accept', 'triage', 'release']
 
 const config = JSON.parse(readFileSync(join(HUB, 'factory.json'), 'utf8'))
 

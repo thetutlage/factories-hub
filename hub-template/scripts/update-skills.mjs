@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 const HUB = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
-const SKILLS = ['intake', 'probe', 'build', 'accept', 'triage']
+const SKILLS = ['intake', 'probe', 'build', 'accept', 'triage', 'release']
 const STATE_MACHINE = '.claude/state-machine.md'
 const FORCE = process.argv.includes('--force')
 const fromIndex = process.argv.indexOf('--from')

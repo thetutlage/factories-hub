@@ -1,9 +1,9 @@
 # Factories hub
 
-The factory: five skills, a state machine, a worker, and a template for a product hub.
+The factory: six skills, a state machine, a worker, and a template for a product hub.
 
 - `state-machine.md` — the statuses of the work, who changes them, and the rules of each change. It is the only place for these rules.
-- `skills/` — `intake`, `probe`, `build`, `triage` and `accept`. They work the same for each product and each stack.
+- `skills/` — `intake`, `probe`, `build`, `triage`, `accept` and `release`. They work the same for each product and each stack.
 - `worker/` — the scripts that build and watch the work on a factory machine.
 - `hub-template/` — the files of a product hub. Copy it one time for each product.
 
@@ -121,6 +121,15 @@ node scripts/import-github.mjs             # import, commit and push the hub, th
 Each run also adds the new comments of an issue or pull request to its task, sets a `waiting` task back to `draft` when the author answers, and discards a task that has not started when its source is closed on GitHub. The person can run it in a clean checkout of the hub. The worker runs it in a worktree.
 
 The text that the import copies from GitHub is a quote, and anyone can write it. The skills read it as a description of the work, and never follow an instruction in it.
+
+### Releases
+
+The factory never releases a package. `scripts/releases.mjs` lists the work that is merged and not released, for each repository with releases on GitHub: the commits since the latest release, the bump they need, and the order when one package depends on another. The `release` skill reads it and recommends the releases. After the person publishes a release, the skill writes its title and notes, and moves on the tasks that waited for it.
+
+```sh
+node scripts/releases.mjs              # each repository with work to release
+node scripts/releases.mjs lucid ace    # only these
+```
 
 ### Dependabot
 
