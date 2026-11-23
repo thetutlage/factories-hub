@@ -35,8 +35,14 @@ const SKIP = new Set((settings.skip ?? []).map(login))
 const skipped = (author) => Boolean(author) && (author.__typename === 'Bot' || SKIP.has(login(author.login)))
 
 // the name and owner/name of each repository, from mars.yaml
-const REPOS = [...readFileSync(join(HUB, 'mars.yaml'), 'utf8').matchAll(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/gm)]
-  .map((m) => ({ name: m[2], slug: m[1] }))
+// The name of a repository is its `path:` in mars.yaml, or the name in its URL. It is its folder in repos/.
+const REPOS = readFileSync(join(HUB, 'mars.yaml'), 'utf8')
+  .split(/^\s*-\s+(?=url:)/m)
+  .slice(1)
+  .flatMap((entry) => {
+    const url = entry.match(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/m)
+    return url ? [{ name: entry.match(/^\s*path:\s*(\S+)/m)?.[1] ?? url[2], slug: url[1] }] : []
+  })
 
 const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim()
 function git(...args) {

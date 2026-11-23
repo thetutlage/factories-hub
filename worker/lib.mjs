@@ -81,11 +81,18 @@ export function readTasks(hub) {
     .filter((task) => task.id)
 }
 
-// owner/name of each repository of the hub, from mars.yaml
+// owner/name of each repository of the hub, from mars.yaml, by its name
+// The name of a repository is its `path:` in mars.yaml, or the name in its URL. It is its folder in repos/.
 export function repoSlugs(hub) {
-  const yaml = readFileSync(join(hub, 'mars.yaml'), 'utf8')
   return Object.fromEntries(
-    [...yaml.matchAll(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/gm)].map((m) => [m[2], m[1]])
+    readFileSync(join(hub, 'mars.yaml'), 'utf8')
+      .split(/^\s*-\s+(?=url:)/m)
+      .slice(1)
+      .flatMap((entry) => {
+        const url = entry.match(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/m)
+        return url ? [{ name: entry.match(/^\s*path:\s*(\S+)/m)?.[1] ?? url[2], slug: url[1] }] : []
+      })
+      .map(({ name, slug }) => [name, slug])
   )
 }
 
