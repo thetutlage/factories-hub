@@ -37,8 +37,16 @@ const COLORS = {
 const MILESTONES = JSON.parse(readFileSync(join(HUB, 'factory.json'), 'utf8')).issues?.milestones ?? {}
 
 // the repository of each name, from mars.yaml
+// The name of a repository is its `path:` in mars.yaml, or the name in its URL. It is its folder in repos/.
 const REPOS = Object.fromEntries(
-  [...readFileSync(join(HUB, 'mars.yaml'), 'utf8').matchAll(/url: git@github\.com:([\w-]+\/([\w.-]+?))\.git/g)].map((m) => [m[2], m[1]])
+  readFileSync(join(HUB, 'mars.yaml'), 'utf8')
+    .split(/^\s*-\s+(?=url:)/m)
+    .slice(1)
+    .flatMap((entry) => {
+      const url = entry.match(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/m)
+      return url ? [{ name: entry.match(/^\s*path:\s*(\S+)/m)?.[1] ?? url[2], slug: url[1] }] : []
+    })
+    .map(({ name, slug }) => [name, slug])
 )
 
 const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8' }).trim()

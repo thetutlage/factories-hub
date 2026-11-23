@@ -12,7 +12,7 @@ The hub is above the code repositories. Run the agents in the hub.
 ## Start a product
 
 1. Copy `hub-template/` to a new folder, for example `acme-hub`, and make it a git repository.
-2. Add each repository to `mars.yaml`: `npx @dean0x/mars add <git url>`. They are cloned into `repos/`.
+2. Add each repository to `mars.yaml`: `npx @dean0x/mars add <git url>`. They are cloned into `repos/`. The name of a repository in the hub is the name in its URL. When two repositories have the same name, give one of them a `path:` in `mars.yaml`. Its `path:` is then its name.
 3. In `CLAUDE.md` of the hub, write the name of the product and the path of each repository (`repos/<name>`).
 4. In `CLAUDE.md` of each repository, write how to run its checks.
 5. In `factory.json`, give the setup command of each repository under `repos`, for example `"web": { "setup": "npm install" }`. Change the schedule if you need to.

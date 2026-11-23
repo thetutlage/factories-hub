@@ -73,9 +73,11 @@ else {
 
 // 3. the repositories in mars.yaml, cloned into repos/
 console.log('\nRepositories')
-const names = [...readFileSync(join(HUB, 'mars.yaml'), 'utf8').matchAll(/url:\s*(\S+)/g)].map((m) =>
-  basename(m[1]).replace(/\.git$/, '')
-)
+// The name of a repository is its `path:` in mars.yaml, or the name in its URL. It is its folder in repos/.
+const names = readFileSync(join(HUB, 'mars.yaml'), 'utf8')
+  .split(/^\s*-\s+(?=url:)/m)
+  .slice(1)
+  .map((entry) => entry.match(/^\s*path:\s*(\S+)/m)?.[1] ?? basename(entry.match(/url:\s*(\S+)/)[1]).replace(/\.git$/, ''))
 if (names.length === 0) console.log('  None in mars.yaml')
 else run('npx', ['-y', '@dean0x/mars', 'clone'])
 

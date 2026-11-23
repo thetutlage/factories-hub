@@ -18,8 +18,14 @@ const MERGE = process.argv.includes('--merge')
 const DRY = process.argv.includes('--dry-run')
 const ONLY = process.argv.slice(2).filter((arg) => !arg.startsWith('--'))
 
-const REPOS = [...readFileSync(join(HUB, 'mars.yaml'), 'utf8').matchAll(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/gm)]
-  .map((m) => ({ name: m[2], slug: m[1] }))
+// The name of a repository is its `path:` in mars.yaml, or the name in its URL. It is its folder in repos/.
+const REPOS = readFileSync(join(HUB, 'mars.yaml'), 'utf8')
+  .split(/^\s*-\s+(?=url:)/m)
+  .slice(1)
+  .flatMap((entry) => {
+    const url = entry.match(/url:\s*\S*github\.com[:/]([\w.-]+\/([\w.-]+?))(?:\.git)?\s*$/m)
+    return url ? [{ name: entry.match(/^\s*path:\s*(\S+)/m)?.[1] ?? url[2], slug: url[1] }] : []
+  })
   .filter((repo) => !ONLY.length || ONLY.includes(repo.name))
 
 const QUERY = `query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { isArchived
