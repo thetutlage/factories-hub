@@ -45,7 +45,7 @@ The worker builds the hubs of a fleet on one machine, for example a Mac mini at 
 ["git@github.com:you/acme-hub.git"]
 ```
 
-The worker acts on GitHub as a GitHub App, the factory's identity. Its pull requests, commits and replies come from `<app>[bot]`, so you review them as a reviewer. The machine needs no SSH key and no `gh` login: the worker mints a token of the App for each git and `gh` call (`worker/github.mjs`).
+The worker acts on GitHub as a GitHub App, the factory's identity. Its pull requests, commits and replies come from `<app>[bot]`, so you review them as a reviewer. Give `--author-name` and `--author-email` to the install to make you the author of its commits, so that they count on your GitHub profile. The App stays the committer. The machine needs no SSH key and no `gh` login: the worker mints a token of the App for each git and `gh` call (`worker/github.mjs`).
 
 Create the App once, in the settings of your GitHub account (Developer settings, GitHub Apps, New GitHub App):
 
