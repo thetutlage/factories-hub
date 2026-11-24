@@ -3,10 +3,14 @@
 //
 //   node worker/install.mjs --fleet <git url of the fleet repository> --app-id <id> --app-key <path of the .pem>
 //   node worker/install.mjs --fleet <url> ... --hubs ~/factories --every 120
+//   node worker/install.mjs --fleet <url> ... --author-name '<name>' --author-email <email>
 //   node worker/install.mjs --uninstall
 //
 // The GitHub App is the factory's identity: the worker and its sessions use it for each git and gh call,
 // over HTTPS, so the machine needs no SSH key and no gh login. See github.mjs.
+//
+// --author-name and --author-email make the person the author of each commit of the factory, so that it counts
+// on their GitHub profile. Give the email of their GitHub account. The App stays the committer.
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -63,13 +67,21 @@ if (!gh) {
   console.error('gh is not installed. Install it with `brew install gh`. It needs no login.')
   process.exit(1)
 }
+const authorName = arg('--author-name')
+const authorEmail = arg('--author-email')
+if (Boolean(authorName) !== Boolean(authorEmail)) {
+  console.error('Pass both --author-name and --author-email, or neither')
+  process.exit(1)
+}
+const commitAuthor = authorName ? { name: authorName, email: authorEmail } : undefined
+
 const { slug } = await appInfo({ appId, key })
 const { id: botId } = await api(`/users/${encodeURIComponent(`${slug}[bot]`)}`)
 
 mkdirSync(HOME, { recursive: true })
 mkdirSync(hubsDir, { recursive: true })
 const github = { appId, key, slug, botId, gh }
-writeFileSync(join(HOME, 'config.json'), `${JSON.stringify({ fleet, hubsDir, paseo, github }, null, 2)}\n`)
+writeFileSync(join(HOME, 'config.json'), `${JSON.stringify({ fleet, hubsDir, paseo, github, commitAuthor }, null, 2)}\n`)
 
 // the job is replaced only after the settings are checked, so a wrong flag leaves the old job running
 spawnSync('launchctl', ['bootout', `${domain}/${LABEL}`], { stdio: 'ignore' })
