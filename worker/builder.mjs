@@ -1,6 +1,7 @@
 // The builder: takes the next `ready` change task of a hub by the rule of "Build" in state-machine.md,
 // claims it on GitHub, prepares a build folder of worktrees, and starts one Paseo session in it with the
-// build skill. One build at a time in each hub.
+// build skill. One build at a time in each hub, or up to `build.parallel` of factory.json when no two of
+// them share a repository.
 import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, symlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,22 +12,36 @@ const CHANGES = fileURLToPath(new URL('changes.mjs', import.meta.url))
 export function builder({ name, hub, hubState, tasks, branch, running }) {
   cleanUp(hub, hubState, tasks, running)
 
-  // one build at a time: a claimed task, or a session that is still running
-  const claimed = tasks.find((task) => task.status === 'building')
-  if (claimed) {
+  // each claimed task and each session that is still running takes a slot, and its repositories
+  const busy = new Map()
+  let handedBack = false
+  for (const claimed of tasks.filter((task) => task.status === 'building')) {
     const build = hubState.builds[claimed.id]
     // a build that never started was reported when it failed
     if (build?.agent && !running(build.agent)) {
       // a session that could not push its hand-back (Codex in auto-review may not push the default branch)
-      if (handBack(name, claimed, build, branch)) return
+      if (handBack(name, claimed, build, branch)) {
+        handedBack = true
+        continue
+      }
       reportOnce(hubState, `stale-${claimed.id}`, name, `${claimed.id} is still \`building\`, but its session has ended. Look at the session in Paseo, then set the task's status.`)
     }
-    return
+    busy.set(claimed.id, claimed.repos)
   }
-  if (Object.values(hubState.builds).some((build) => running(build.agent))) return
+  for (const [id, build] of Object.entries(hubState.builds)) {
+    if (!busy.has(id) && running(build.agent)) busy.set(id, tasks.find((task) => task.id === id)?.repos ?? [])
+  }
+  // a hand-back changed the hub: the next poll reads it before it claims a task
+  if (handedBack || busy.size >= slotsOf(hub)) return
 
-  const task = nextTask(hub, tasks)
+  const task = nextTask(hub, tasks, new Set([...busy.values()].flat()))
   if (task) build(name, hub, hubState, task, branch)
+}
+
+// `build.parallel` of factory.json: how many builds run at the same time. One when it is not set.
+function slotsOf(hub) {
+  const parallel = factoryOf(hub).build?.parallel
+  return Number.isInteger(parallel) && parallel > 1 ? parallel : 1
 }
 
 // A build hands back by its status: anything but `building` in its own commits.
@@ -34,13 +49,15 @@ function handBack(name, task, build, branch) {
   return pushHandBack(name, task, build.folder, branch, 'build', (status) => status !== 'building')
 }
 
-// rework first, then the lowest number; each dependency done, and only the repositories of build.repos
-function nextTask(hub, tasks) {
+// rework first, then the lowest number; each dependency done, only the repositories of build.repos, and
+// no repository that a running build uses
+function nextTask(hub, tasks, busyRepos) {
   const allowed = factoryOf(hub).build?.repos
   const done = new Set(tasks.filter((task) => task.status === 'done').map((task) => task.id))
   return tasks
     .filter((task) => task.status === 'ready' && task.deps.every((dep) => done.has(dep)))
     .filter((task) => !allowed || task.repos.every((repo) => allowed.includes(repo)))
+    .filter((task) => !task.repos.some((repo) => busyRepos.has(repo)))
     .sort((a, b) => Number(b.rework) - Number(a.rework) || a.number - b.number)[0]
 }
 
